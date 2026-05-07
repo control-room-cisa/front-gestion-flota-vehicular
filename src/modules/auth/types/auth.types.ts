@@ -1,13 +1,14 @@
 import type { RolNombre } from '../../../shared/types/roles.types';
 
-/**
- * Tipos del módulo Auth — mantener idénticos a
- * back/src/modules/auth/dtos/auth.dtos.ts
- */
-
 export interface LoginDto {
   codigo_empleado: string;
   contrasena: string;
+}
+
+export interface UsuarioEmpresaDto {
+  id: number;
+  codigo: string;
+  nombre: string;
 }
 
 export interface UsuarioPublicoDto {
@@ -16,6 +17,7 @@ export interface UsuarioPublicoDto {
   nombre: string;
   apellido: string;
   roles: RolNombre[];
+  empresa: UsuarioEmpresaDto | null;
 }
 
 export interface AuthResponseDto {

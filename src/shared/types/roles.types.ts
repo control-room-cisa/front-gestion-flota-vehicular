@@ -39,3 +39,21 @@ export const hasRole = (
   const requeridos = Array.isArray(required) ? required : [required];
   return requeridos.some((r) => userRoles.includes(r));
 };
+
+/**
+ * Roles con privilegios elevados sobre el módulo de movilizaciones:
+ *  - Pueden editar / eliminar movilizaciones de cualquier usuario.
+ *  - Pueden seleccionar múltiples empresas al registrar.
+ *
+ * Los demás usuarios sólo pueden gestionar sus propios registros y
+ * el sistema fija automáticamente la empresa a la que pertenecen.
+ */
+export const MOVILIZACION_MANAGER_ROLES: RolNombre[] = [
+  'controlroom',
+  'logistica',
+  'admin',
+];
+
+export const isMovilizacionManager = (
+  userRoles: RolNombre[] | undefined,
+): boolean => hasRole(userRoles, MOVILIZACION_MANAGER_ROLES);

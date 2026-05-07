@@ -12,7 +12,10 @@ import type { RolNombre } from '../types/roles.types';
 export interface AppModule {
   path: string;
   label: string;
-  /** Roles que pueden ver y entrar al módulo */
+  /**
+   * Roles que pueden ver y entrar al módulo.
+   * Un array vacío significa "cualquier usuario autenticado".
+   */
   allowed: RolNombre[];
 }
 
@@ -22,16 +25,16 @@ export const APP_MODULES: AppModule[] = [
   { path: '/reportes', label: 'Reportes', allowed: ['contabilidad', 'admin'] },
   { path: '/vehiculos', label: 'Vehículos', allowed: ['logistica', 'admin'] },
   { path: '/monitoreo', label: 'Monitoreo', allowed: ['controlroom', 'admin'] },
-  {
-    path: '/movilizaciones',
-    label: 'Movilizaciones',
-    allowed: ['usuario', 'admin'],
-  },
+  // Movilizaciones está disponible para cualquier autenticado.
+  { path: '/movilizaciones', label: 'Movilizaciones', allowed: [] },
 ];
 
 /**
  * Devuelve los módulos accesibles para un conjunto de roles.
- * Conserva el orden de `APP_MODULES`.
+ * Conserva el orden de `APP_MODULES`. Un módulo con `allowed: []`
+ * se considera abierto a cualquier usuario autenticado.
  */
 export const getAccessibleModules = (roles: RolNombre[]): AppModule[] =>
-  APP_MODULES.filter((m) => m.allowed.some((r) => roles.includes(r)));
+  APP_MODULES.filter(
+    (m) => m.allowed.length === 0 || m.allowed.some((r) => roles.includes(r)),
+  );

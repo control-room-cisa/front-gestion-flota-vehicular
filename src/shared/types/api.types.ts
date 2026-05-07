@@ -30,6 +30,17 @@ export interface ApiRequest<T = unknown> {
   data: T;
 }
 
+/**
+ * Resultado paginado genérico. Se devuelve como `data` dentro de un
+ * `ApiResponse` para listas con filtros y paginado.
+ */
+export interface Paginated<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export const apiOk = <T>(data: T, message = 'OK'): ApiResponse<T> => ({
   success: true,
   message,

@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { LoginPage } from '../modules/auth/views/LoginPage';
 import { EmpresasPage } from '../modules/empresas/views/EmpresasPage';
+import { MovilizacionesPage } from '../modules/movilizaciones/views/MovilizacionesPage';
 import { VehiculosPage } from '../modules/vehiculos/views/VehiculosPage';
 import {
   ProtectedRoute,
@@ -64,8 +65,8 @@ export const router = createBrowserRouter([
   {
     path: '/movilizaciones',
     element: (
-      <ProtectedRoute allowed={['usuario', 'admin']}>
-        <RoleHomeView title="Mis Movilizaciones" rol="usuario" />
+      <ProtectedRoute>
+        <MovilizacionesPage />
       </ProtectedRoute>
     ),
   },
