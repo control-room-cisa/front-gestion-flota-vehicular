@@ -23,9 +23,20 @@ export const empresaService = {
   update: (id: number, data: UpdateEmpresaDto) =>
     apiClient.put<UpdateEmpresaDto, EmpresaDto>(`${BASE}/${id}`, data, opts),
 
-  deactivate: (id: number) =>
+  remove: (id: number) =>
     apiClient.delete<EmpresaDto>(`${BASE}/${id}`, opts),
 
-  activate: (id: number) =>
-    apiClient.post<undefined, EmpresaDto>(`${BASE}/${id}/activar`, undefined, opts),
+  restore: (id: number) =>
+    apiClient.post<undefined, EmpresaDto>(
+      `${BASE}/${id}/restaurar`,
+      undefined,
+      opts,
+    ),
+
+  setActivo: (id: number, activo: boolean) =>
+    apiClient.put<UpdateEmpresaDto, EmpresaDto>(
+      `${BASE}/${id}`,
+      { activo },
+      opts,
+    ),
 };

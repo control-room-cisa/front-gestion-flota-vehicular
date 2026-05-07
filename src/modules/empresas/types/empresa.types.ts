@@ -18,4 +18,5 @@ export interface CreateEmpresaDto {
 export interface UpdateEmpresaDto {
   codigo?: string;
   nombre?: string;
+  activo?: boolean;
 }
