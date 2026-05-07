@@ -23,6 +23,11 @@ export const APP_MODULES: AppModule[] = [
   // Movilizaciones está disponible para cualquier autenticado y se muestra
   // siempre en primer lugar del menú, sin importar el rol.
   { path: '/movilizaciones', label: 'Movilizaciones', allowed: [] },
+  {
+    path: '/dispensados',
+    label: 'Dispensados',
+    allowed: ['controlroom', 'logistica', 'almacen', 'admin'],
+  },
   { path: '/admin', label: 'Administración', allowed: ['admin'] },
   { path: '/empresas', label: 'Empresas', allowed: ['contabilidad', 'admin'] },
   { path: '/reportes', label: 'Reportes', allowed: ['contabilidad', 'admin'] },

@@ -9,6 +9,7 @@ export const ROLE_HOME: Record<RolNombre, string> = {
   contabilidad: '/empresas',
   logistica: '/vehiculos',
   controlroom: '/monitoreo',
+  almacen: '/dispensados',
   usuario: '/movilizaciones',
 };
 
@@ -22,6 +23,7 @@ const PRIORIDAD_ROLES: RolNombre[] = [
   'contabilidad',
   'logistica',
   'controlroom',
+  'almacen',
   'usuario',
 ];
 

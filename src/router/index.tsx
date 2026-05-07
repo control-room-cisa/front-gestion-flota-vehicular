@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { LoginPage } from '../modules/auth/views/LoginPage';
+import { DispensadosPage } from '../modules/dispensados/views/DispensadosPage';
 import { EmpresasPage } from '../modules/empresas/views/EmpresasPage';
 import { MovilizacionesPage } from '../modules/movilizaciones/views/MovilizacionesPage';
 import { VehiculosPage } from '../modules/vehiculos/views/VehiculosPage';
@@ -67,6 +68,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <MovilizacionesPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/dispensados',
+    element: (
+      <ProtectedRoute>
+        <DispensadosPage />
       </ProtectedRoute>
     ),
   },

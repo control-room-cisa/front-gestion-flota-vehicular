@@ -15,6 +15,7 @@ export const ROLES = [
   'controlroom',
   'logistica',
   'contabilidad',
+  'almacen',
   'admin',
 ] as const;
 
@@ -57,3 +58,20 @@ export const MOVILIZACION_MANAGER_ROLES: RolNombre[] = [
 export const isMovilizacionManager = (
   userRoles: RolNombre[] | undefined,
 ): boolean => hasRole(userRoles, MOVILIZACION_MANAGER_ROLES);
+
+/**
+ * Roles con acceso al módulo de dispensados de combustible.
+ * Cualquiera de estos roles puede ver, crear, editar y eliminar
+ * registros de dispensado (ownership-based: el dueño y los demás
+ * roles operativos pueden gestionarlos).
+ */
+export const DISPENSADO_MANAGER_ROLES: RolNombre[] = [
+  'controlroom',
+  'logistica',
+  'almacen',
+  'admin',
+];
+
+export const isDispensadoManager = (
+  userRoles: RolNombre[] | undefined,
+): boolean => hasRole(userRoles, DISPENSADO_MANAGER_ROLES);
