@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../../../shared/auth/AuthContext';
 import { AppHeader } from '../../../shared/components/AppHeader';
 import { useConfirm } from '../../../shared/components/ConfirmProvider';
@@ -25,6 +26,34 @@ type Modo =
   | { tipo: 'editar'; movilizacion: MovilizacionDto };
 
 const PAGE_SIZE = 20;
+
+interface GapInfo {
+  fromKm: number;
+  toKm: number;
+  vehiculo: { nombre: string; clase: string };
+}
+
+interface RowDecoration {
+  /** El `kilometrajeInicial` cae dentro del rango de otra movilización
+   *  del mismo vehículo. */
+  overlapInicial: boolean;
+  /** El `kilometrajeFinal` cae dentro del rango de otra movilización
+   *  del mismo vehículo. */
+  overlapFinal: boolean;
+  /** Si está presente, se inserta un fila-fantasma de "gap" justo después
+   *  del registro al que pertenece esta decoración. */
+  gapAfter?: GapInfo;
+}
+
+const WarningIcon = ({ className = 'h-3.5 w-3.5' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+    <path
+      fillRule="evenodd"
+      d="M8.485 2.495a1.75 1.75 0 013.03 0l6.28 10.875A1.75 1.75 0 0116.28 16H3.72a1.75 1.75 0 01-1.515-2.63L8.485 2.495zM10 7a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 0110 7zm0 7.25a1 1 0 100-2 1 1 0 000 2z"
+      clipRule="evenodd"
+    />
+  </svg>
+);
 
 const formatFecha = (iso: string): string =>
   new Date(iso).toLocaleString('es-GT', {
@@ -66,6 +95,31 @@ export const MovilizacionesPage = () => {
   const [hasta, setHasta] = useState<string>(hoyISO());
   const [vehiculoFiltro, setVehiculoFiltro] = useState<VehiculoDto | null>(null);
   const [page, setPage] = useState(1);
+
+  // Tooltip flotante para comentarios. Lo renderizamos vía portal en
+  // `document.body` para no quedar atrapados por `overflow-hidden` del
+  // contenedor de la tabla. Se activa al instante al entrar a la celda.
+  const [commentTooltip, setCommentTooltip] = useState<{
+    top: number;
+    left: number;
+    text: string;
+  } | null>(null);
+
+  const showCommentTooltip = (
+    e: React.MouseEvent<HTMLTableCellElement>,
+    text: string,
+  ) => {
+    if (!text) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const TT_MAX_W = 360;
+    let left = rect.left;
+    if (left + TT_MAX_W > window.innerWidth - 8) {
+      left = Math.max(8, window.innerWidth - TT_MAX_W - 8);
+    }
+    setCommentTooltip({ top: rect.bottom + 6, left, text });
+  };
+
+  const hideCommentTooltip = () => setCommentTooltip(null);
 
   // -------------------------------------------------------------------------
   // Catálogos: se cargan una vez al montar (no dependen de filtros).
@@ -176,6 +230,63 @@ export const MovilizacionesPage = () => {
 
   const fechasInvalidas = desde && hasta && desde > hasta;
 
+  // ---------------------------------------------------------------------------
+  // Decoraciones por fila: traslapes + gaps. Se calcula sobre el dataset
+  // visible (página actual). Las gaps se anclan al registro de mayor `kmInicial`
+  // de cada par para que, en orden `fecha desc`, queden visualmente entre las
+  // dos filas relacionadas (cur arriba, prev abajo).
+  // ---------------------------------------------------------------------------
+  const decorations = useMemo<Map<number, RowDecoration>>(() => {
+    const dec = new Map<number, RowDecoration>();
+    const ensure = (id: number): RowDecoration => {
+      let d = dec.get(id);
+      if (!d) {
+        d = { overlapInicial: false, overlapFinal: false };
+        dec.set(id, d);
+      }
+      return d;
+    };
+
+    // Agrupa por vehículo: traslapes y gaps sólo aplican dentro del mismo.
+    const groups = new Map<number, MovilizacionDto[]>();
+    for (const m of movilizaciones) {
+      const arr = groups.get(m.vehiculo.id) ?? [];
+      arr.push(m);
+      groups.set(m.vehiculo.id, arr);
+    }
+
+    // Recorrido único por vehículo en orden fecha ascendente. Para cada par
+    // consecutivo (N = anterior, N+1 = siguiente):
+    //   - N.kmFinal > (N+1).kmInicial  → traslape: marca esos dos valores.
+    //   - N.kmFinal < (N+1).kmInicial  → hueco: fila fantasma anclada a N+1
+    //                                    (en fecha desc N+1 aparece arriba,
+    //                                    así la fila queda entre los dos).
+    //   - Iguales                       → continuidad perfecta, sin alerta.
+    for (const group of groups.values()) {
+      const sorted = [...group].sort(
+        (a, b) => a.fecha.localeCompare(b.fecha) || a.id - b.id,
+      );
+
+      for (let i = 1; i < sorted.length; i++) {
+        const prev = sorted[i - 1];
+        const cur = sorted[i];
+
+        if (prev.kilometrajeFinal > cur.kilometrajeInicial) {
+          ensure(prev.id).overlapFinal = true;
+          ensure(cur.id).overlapInicial = true;
+        } else if (prev.kilometrajeFinal < cur.kilometrajeInicial) {
+          ensure(cur.id).gapAfter = {
+            fromKm: prev.kilometrajeFinal,
+            toKm: cur.kilometrajeInicial,
+            vehiculo: { nombre: cur.vehiculo.nombre, clase: cur.vehiculo.clase },
+          };
+        }
+      }
+    }
+
+    return dec;
+  }, [movilizaciones]);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <AppHeader title="Movilizaciones" subtitle="Ingreso de kilometrajes" />
@@ -253,93 +364,178 @@ export const MovilizacionesPage = () => {
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Fecha</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Usuario</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Vehículo</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">Km inicial</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">Km final</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">Recorrido</th>
+                <th
+                  className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
+                  title="Kilometraje inicial"
+                >
+                  Km ini
+                </th>
+                <th
+                  className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
+                  title="Kilometraje final"
+                >
+                  Km fin
+                </th>
+                <th
+                  className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
+                  title="Kilómetros recorridos"
+                >
+                  Rec.
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Empresas</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Comentario</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
                     Cargando...
                   </td>
                 </tr>
               ) : movilizaciones.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
                     Sin registros para los filtros aplicados.
                   </td>
                 </tr>
               ) : (
                 movilizaciones.map((m) => {
                   const recorrido = m.kilometrajeFinal - m.kilometrajeInicial;
+                  const deco = decorations.get(m.id);
+                  const overlapInicial = deco?.overlapInicial ?? false;
+                  const overlapFinal = deco?.overlapFinal ?? false;
+                  const gap = deco?.gapAfter;
+                  const overlapTooltip =
+                    'Este kilometraje se traslapa con otra movilización del mismo vehículo';
+
+                  const kmCellClass = (alert: boolean) =>
+                    'px-2 py-3 text-sm text-right font-mono whitespace-nowrap ' +
+                    (alert ? 'text-red-700' : 'text-slate-800');
+
                   return (
-                    <tr key={m.id}>
-                      <td className="px-4 py-3 text-sm text-slate-800 whitespace-nowrap">
-                        {formatFecha(m.fecha)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-800">
-                        <div className="font-semibold">
-                          {m.usuario.nombre} {m.usuario.apellido}
-                        </div>
-                        <div className="text-xs text-slate-500 font-mono">
-                          {m.usuario.codigo_empleado}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-800">
-                        <div className="font-semibold">{m.vehiculo.nombre}</div>
-                        <div className="text-xs font-mono uppercase text-slate-500">
-                          {m.vehiculo.clase}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-800 text-right font-mono">
-                        {m.kilometrajeInicial.toLocaleString('es-GT')}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-800 text-right font-mono">
-                        {m.kilometrajeFinal.toLocaleString('es-GT')}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-mono text-right text-indigo-700 font-semibold">
-                        {recorrido.toLocaleString('es-GT')}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-800">
-                        <div className="flex flex-wrap gap-1">
-                          {m.empresas.map((e) => (
-                            <span
-                              key={e.id}
-                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-mono bg-indigo-50 text-indigo-700"
-                              title={e.nombre}
-                            >
-                              {e.codigo}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
-                        {m.canManage ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setModo({ tipo: 'editar', movilizacion: m })}
-                              className="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => eliminar(m)}
-                              className="px-3 py-1 text-xs font-semibold rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
-                            >
-                              Eliminar
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-xs text-slate-400">—</span>
-                        )}
-                      </td>
-                    </tr>
+                    <Fragment key={m.id}>
+                      <tr>
+                        <td className="px-4 py-3 text-sm text-slate-800 whitespace-nowrap">
+                          {formatFecha(m.fecha)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-800">
+                          <div className="font-semibold">
+                            {m.usuario.nombre} {m.usuario.apellido}
+                          </div>
+                          <div className="text-xs text-slate-500 font-mono">
+                            {m.usuario.codigo_empleado}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-800">
+                          <div className="font-semibold">{m.vehiculo.nombre}</div>
+                          <div className="text-xs font-mono uppercase text-slate-500">
+                            {m.vehiculo.clase}
+                          </div>
+                        </td>
+                        <td className={kmCellClass(overlapInicial)}>
+                          <span className="inline-flex items-center justify-end gap-1.5">
+                            {overlapInicial && (
+                              <span
+                                className="text-red-600"
+                                title={overlapTooltip}
+                                aria-label={overlapTooltip}
+                              >
+                                <WarningIcon />
+                              </span>
+                            )}
+                            <span>{m.kilometrajeInicial.toLocaleString('es-GT')}</span>
+                          </span>
+                        </td>
+                        <td className={kmCellClass(overlapFinal)}>
+                          <span className="inline-flex items-center justify-end gap-1.5">
+                            {overlapFinal && (
+                              <span
+                                className="text-red-600"
+                                title={overlapTooltip}
+                                aria-label={overlapTooltip}
+                              >
+                                <WarningIcon />
+                              </span>
+                            )}
+                            <span>{m.kilometrajeFinal.toLocaleString('es-GT')}</span>
+                          </span>
+                        </td>
+                        <td className="px-2 py-3 text-sm font-mono text-right text-indigo-700 font-semibold whitespace-nowrap">
+                          {recorrido.toLocaleString('es-GT')}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-800">
+                          <div className="flex flex-wrap gap-1">
+                            {m.empresas.map((e) => (
+                              <span
+                                key={e.id}
+                                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-mono bg-indigo-50 text-indigo-700"
+                                title={e.nombre}
+                              >
+                                {e.codigo}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td
+                          className="px-4 py-3 text-sm text-slate-700 max-w-[16rem] cursor-help"
+                          onMouseEnter={(e) => showCommentTooltip(e, m.comentario)}
+                          onMouseLeave={hideCommentTooltip}
+                        >
+                          <span className="block truncate">{m.comentario}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+                          {m.canManage ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setModo({ tipo: 'editar', movilizacion: m })}
+                                className="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => eliminar(m)}
+                                className="px-3 py-1 text-xs font-semibold rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                              >
+                                Eliminar
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                      {gap && (
+                        <tr className="bg-red-50">
+                          <td
+                            colSpan={9}
+                            className="px-4 py-2.5 text-sm text-red-700 border-l-4 border-l-red-400"
+                          >
+                            <div className="flex items-center justify-center gap-2 text-center">
+                              <WarningIcon className="h-4 w-4 shrink-0" />
+                              <span>
+                                <strong>Sin registros</strong> — no se han
+                                registrado kilometrajes entre{' '}
+                                <span className="font-mono font-semibold">
+                                  {gap.fromKm.toLocaleString('es-GT')}
+                                </span>{' '}
+                                y{' '}
+                                <span className="font-mono font-semibold">
+                                  {gap.toKm.toLocaleString('es-GT')}
+                                </span>{' '}
+                                para <strong>{gap.vehiculo.nombre}</strong>{' '}
+                                <span className="font-mono uppercase opacity-70">
+                                  ({gap.vehiculo.clase})
+                                </span>
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })
               )}
@@ -387,6 +583,23 @@ export const MovilizacionesPage = () => {
         onClose={() => setModo({ tipo: 'oculto' })}
         onSubmit={handleSubmit}
       />
+
+      {commentTooltip &&
+        createPortal(
+          <div
+            role="tooltip"
+            style={{
+              position: 'fixed',
+              top: commentTooltip.top,
+              left: commentTooltip.left,
+              maxWidth: 360,
+            }}
+            className="z-50 px-3 py-2 text-xs leading-relaxed text-white bg-slate-900 rounded-lg shadow-xl whitespace-pre-line break-words pointer-events-none"
+          >
+            {commentTooltip.text}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };
