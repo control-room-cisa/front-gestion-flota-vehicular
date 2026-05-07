@@ -1,15 +1,15 @@
 import { env } from '../../config/env';
-import type { ApiRequest, ApiResponse } from '../types/api.types';
+import type { ApiErrorDetail, ApiRequest, ApiResponse } from '../types/api.types';
 
+/**
+ * Error lanzado cuando el backend devuelve `ApiResponse.success === false`
+ * o cuando la respuesta HTTP no es JSON parseable.
+ */
 export class ApiError extends Error {
   status: number;
-  errors: { field?: string; code?: string; message: string }[];
+  errors: ApiErrorDetail[];
 
-  constructor(
-    message: string,
-    status: number,
-    errors: { field?: string; code?: string; message: string }[] = [],
-  ) {
+  constructor(message: string, status: number, errors: ApiErrorDetail[] = []) {
     super(message);
     this.status = status;
     this.errors = errors;
@@ -39,34 +39,58 @@ const buildHeaders = (auth: boolean | undefined): HeadersInit => {
   return headers;
 };
 
-const handleResponse = async <T>(res: Response): Promise<T> => {
-  const json = (await res.json()) as ApiResponse<T>;
+/**
+ * Toma la respuesta cruda y la valida contra `ApiResponse<TData>`.
+ * Si `success` es false lanza `ApiError`; si es true devuelve `data`.
+ */
+const unwrap = async <TData>(res: Response): Promise<TData> => {
+  const json = (await res.json()) as ApiResponse<TData>;
   if (!json.success) {
     throw new ApiError(json.message ?? 'Error', res.status, json.errors ?? []);
   }
-  return json.data as T;
+  return json.data as TData;
+};
+
+/**
+ * Empaqueta el body como `ApiRequest<TBody>` (lo que espera el backend) y
+ * desempaqueta la respuesta como `ApiResponse<TData>`. Quien llame al cliente
+ * sólo trabaja con tipos de dominio (TBody, TData); el envelope `data` es
+ * responsabilidad del cliente.
+ */
+const request = async <TData, TBody = undefined>(
+  method: string,
+  path: string,
+  body: TBody | undefined,
+  options: RequestOptions,
+): Promise<TData> => {
+  const init: RequestInit = {
+    method,
+    headers: buildHeaders(options.auth),
+  };
+  if (body !== undefined) {
+    const payload: ApiRequest<TBody> = { data: body };
+    init.body = JSON.stringify(payload);
+  }
+  const res = await fetch(`${env.API_URL}${path}`, init);
+  return unwrap<TData>(res);
 };
 
 export const apiClient = {
-  async post<TBody, TData>(
+  get: <TData>(path: string, options: RequestOptions = {}): Promise<TData> =>
+    request<TData>('GET', path, undefined, options),
+
+  post: <TBody, TData>(
+    path: string,
+    body?: TBody,
+    options: RequestOptions = {},
+  ): Promise<TData> => request<TData, TBody>('POST', path, body, options),
+
+  put: <TBody, TData>(
     path: string,
     body: TBody,
     options: RequestOptions = {},
-  ): Promise<TData> {
-    const payload: ApiRequest<TBody> = { data: body };
-    const res = await fetch(`${env.API_URL}${path}`, {
-      method: 'POST',
-      headers: buildHeaders(options.auth),
-      body: JSON.stringify(payload),
-    });
-    return handleResponse<TData>(res);
-  },
+  ): Promise<TData> => request<TData, TBody>('PUT', path, body, options),
 
-  async get<TData>(path: string, options: RequestOptions = {}): Promise<TData> {
-    const res = await fetch(`${env.API_URL}${path}`, {
-      method: 'GET',
-      headers: buildHeaders(options.auth),
-    });
-    return handleResponse<TData>(res);
-  },
+  delete: <TData>(path: string, options: RequestOptions = {}): Promise<TData> =>
+    request<TData>('DELETE', path, undefined, options),
 };

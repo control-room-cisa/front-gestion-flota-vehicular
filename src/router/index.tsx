@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { LoginPage } from '../modules/auth/views/LoginPage';
+import { EmpresasPage } from '../modules/empresas/views/EmpresasPage';
 import {
   ProtectedRoute,
   PublicOnlyRoute,
@@ -24,6 +25,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowed={['admin']}>
         <RoleHomeView title="Panel de Administración" rol="admin" />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/empresas',
+    element: (
+      <ProtectedRoute allowed={['contabilidad', 'admin']}>
+        <EmpresasPage />
       </ProtectedRoute>
     ),
   },

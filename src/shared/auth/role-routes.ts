@@ -6,7 +6,7 @@ import type { RolNombre } from '../types/roles.types';
  */
 export const ROLE_HOME: Record<RolNombre, string> = {
   admin: '/admin',
-  contabilidad: '/reportes',
+  contabilidad: '/empresas',
   logistica: '/vehiculos',
   controlroom: '/monitoreo',
   usuario: '/movilizaciones',

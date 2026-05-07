@@ -1,6 +1,16 @@
 /**
  * Contrato compartido entre backend y frontend.
  * Mantener este archivo idéntico en ambos proyectos.
+ *
+ * Reglas:
+ *  - Toda respuesta HTTP del backend devuelve un `ApiResponse<T>`,
+ *    sea éxito o error.
+ *  - `success` y `message` son SIEMPRE obligatorios.
+ *  - `data` aparece solo cuando hay payload útil (típicamente en éxito).
+ *  - `errors` aparece solo cuando hay detalle de fallos
+ *    (típicamente en validación o errores de negocio).
+ *  - Toda petición con body usa `ApiRequest<T>`: el payload viaja
+ *    siempre dentro de `data`.
  */
 
 export interface ApiErrorDetail {
@@ -26,11 +36,11 @@ export const apiOk = <T>(data: T, message = 'OK'): ApiResponse<T> => ({
   data,
 });
 
-export const apiFail = (
+export const apiFail = <T = never>(
   message: string,
   errors: ApiErrorDetail[] = [],
-): ApiResponse<never> => ({
-  success: false,
-  message,
-  errors,
-});
+): ApiResponse<T> => {
+  const res: ApiResponse<T> = { success: false, message };
+  if (errors.length > 0) res.errors = errors;
+  return res;
+};
