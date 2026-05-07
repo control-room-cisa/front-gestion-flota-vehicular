@@ -72,7 +72,7 @@ export const VehiculosPage = () => {
   const eliminar = async (vehiculo: VehiculoDto) => {
     const ok = await confirm({
       title: 'Eliminar vehículo',
-      message: `¿Eliminar el vehículo ${vehiculo.clase}?\nSe ocultará pero podrás recuperarlo.`,
+      message: `¿Eliminar el vehículo ${vehiculo.clase}? Esta acción no se puede deshacer.`,
       confirmText: 'Eliminar',
       variant: 'danger',
     });

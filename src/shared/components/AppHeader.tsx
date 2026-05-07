@@ -1,4 +1,5 @@
 import { useAuth } from '../auth/AuthContext';
+import { NavMenu } from './NavMenu';
 
 interface AppHeaderProps {
   title: string;
@@ -10,18 +11,18 @@ export const AppHeader = ({ title, subtitle }: AppHeaderProps) => {
 
   return (
     <header className="border-b border-slate-200 bg-white">
-      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        <div>
+      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
+        <div className="min-w-0">
           {subtitle && (
             <p className="text-xs uppercase tracking-wider text-slate-500">
               {subtitle}
             </p>
           )}
-          <h1 className="text-xl font-bold text-slate-800">{title}</h1>
+          <h1 className="text-xl font-bold text-slate-800 truncate">{title}</h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 shrink-0">
           {usuario && (
-            <div className="text-right">
+            <div className="text-right hidden sm:block">
               <p className="text-sm font-semibold text-slate-700">
                 {usuario.nombre} {usuario.apellido}
               </p>
@@ -39,6 +40,7 @@ export const AppHeader = ({ title, subtitle }: AppHeaderProps) => {
           </button>
         </div>
       </div>
+      <NavMenu />
     </header>
   );
 };

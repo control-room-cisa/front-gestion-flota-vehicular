@@ -72,7 +72,7 @@ export const EmpresasPage = () => {
   const eliminar = async (empresa: EmpresaDto) => {
     const ok = await confirm({
       title: 'Eliminar empresa',
-      message: `¿Eliminar la empresa ${empresa.codigo}?\nSe ocultará pero podrás recuperarla.`,
+      message: `¿Eliminar la empresa ${empresa.codigo}? Esta acción no se puede deshacer.`,
       confirmText: 'Eliminar',
       variant: 'danger',
     });
