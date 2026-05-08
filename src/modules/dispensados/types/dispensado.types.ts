@@ -16,6 +16,22 @@ export interface DispensadoVehiculoDto {
   clase: string;
 }
 
+/**
+ * Evaluación de continuidad del kilometraje del dispensado contra
+ * las movilizaciones del mismo vehículo, ordenadas por fecha:
+ *   N   = última movilización con `fecha < dispensado.fecha`
+ *   N+1 = primera movilización con `fecha > dispensado.fecha`
+ * El kilometraje debe coincidir con `N.kilometrajeFinal` y con
+ * `(N+1).kilometrajeInicial`. Cualquier discrepancia → `alerta=true`.
+ */
+export interface ContinuidadDispensadoDto {
+  prevKmFinal: number | null;
+  prevFecha: string | null;
+  nextKmInicial: number | null;
+  nextFecha: string | null;
+  alerta: boolean;
+}
+
 export interface DispensadoDto {
   id: number;
   fecha: string;
@@ -30,6 +46,7 @@ export interface DispensadoDto {
   updatedAt: string;
   usuario: DispensadoUsuarioDto;
   vehiculo: DispensadoVehiculoDto;
+  continuidad: ContinuidadDispensadoDto;
   canManage: boolean;
 }
 

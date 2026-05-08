@@ -27,6 +27,16 @@ const formatFecha = (iso: string): string =>
     timeStyle: 'short',
   });
 
+const WarningIcon = ({ className = 'h-3.5 w-3.5' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+    <path
+      fillRule="evenodd"
+      d="M8.485 2.495a1.75 1.75 0 013.03 0l6.28 10.875A1.75 1.75 0 0116.28 16H3.72a1.75 1.75 0 01-1.515-2.63L8.485 2.495zM10 7a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 0110 7zm0 7.25a1 1 0 100-2 1 1 0 000 2z"
+      clipRule="evenodd"
+    />
+  </svg>
+);
+
 const formatDecimal = (raw: string): string => {
   const n = Number(raw);
   if (!Number.isFinite(n)) return raw;
@@ -41,6 +51,26 @@ const calcularTotal = (cantidad: string, precio: string): number => {
   const p = Number(precio);
   if (!Number.isFinite(c) || !Number.isFinite(p)) return 0;
   return c * p;
+};
+
+/**
+ * Construye el texto de tooltip para la alerta de continuidad de
+ * kilometraje, listando los valores de prev / next que no coinciden.
+ */
+const buildContinuidadTooltip = (d: DispensadoDto): string => {
+  const parts: string[] = [
+    'El kilometraje no coincide con las movilizaciones del vehículo:',
+  ];
+  const c = d.continuidad;
+  if (c.prevKmFinal !== null && c.prevKmFinal !== d.kilometraje) {
+    parts.push(`• Anterior (km final): ${c.prevKmFinal.toLocaleString('es-GT')}`);
+  }
+  if (c.nextKmInicial !== null && c.nextKmInicial !== d.kilometraje) {
+    parts.push(
+      `• Siguiente (km inicial): ${c.nextKmInicial.toLocaleString('es-GT')}`,
+    );
+  }
+  return parts.join('\n');
 };
 
 /** "YYYY-MM-DD" del día actual en TZ local. */
@@ -341,8 +371,26 @@ export const DispensadosPage = () => {
                           {d.vehiculo.clase}
                         </div>
                       </td>
-                      <td className="px-2 py-3 text-sm text-right font-mono text-slate-800 whitespace-nowrap">
-                        {d.kilometraje.toLocaleString('es-GT')}
+                      <td
+                        className={
+                          'px-2 py-3 text-sm text-right font-mono whitespace-nowrap ' +
+                          (d.continuidad.alerta
+                            ? 'text-red-700'
+                            : 'text-slate-800')
+                        }
+                      >
+                        <span className="inline-flex items-center justify-end gap-1.5">
+                          {d.continuidad.alerta && (
+                            <span
+                              className="text-red-600"
+                              title={buildContinuidadTooltip(d)}
+                              aria-label={buildContinuidadTooltip(d)}
+                            >
+                              <WarningIcon />
+                            </span>
+                          )}
+                          <span>{d.kilometraje.toLocaleString('es-GT')}</span>
+                        </span>
                       </td>
                       <td className="px-2 py-3 text-sm text-right font-mono text-slate-800 whitespace-nowrap">
                         {formatDecimal(d.cantidadGalones)}

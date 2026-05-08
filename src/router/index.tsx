@@ -3,6 +3,7 @@ import { LoginPage } from '../modules/auth/views/LoginPage';
 import { DispensadosPage } from '../modules/dispensados/views/DispensadosPage';
 import { EmpresasPage } from '../modules/empresas/views/EmpresasPage';
 import { MovilizacionesPage } from '../modules/movilizaciones/views/MovilizacionesPage';
+import { ReportesPage } from '../modules/reportes/views/ReportesPage';
 import { VehiculosPage } from '../modules/vehiculos/views/VehiculosPage';
 import {
   ProtectedRoute,
@@ -42,8 +43,8 @@ export const router = createBrowserRouter([
   {
     path: '/reportes',
     element: (
-      <ProtectedRoute allowed={['contabilidad', 'admin']}>
-        <RoleHomeView title="Reportes Contables" rol="contabilidad" />
+      <ProtectedRoute allowed={['logistica', 'contabilidad', 'admin']}>
+        <ReportesPage />
       </ProtectedRoute>
     ),
   },

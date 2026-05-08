@@ -105,11 +105,16 @@ export const DispensadoForm = ({
     }
   }, [open, initial, vehiculosOptions]);
 
-  // Al cambiar el vehículo: traemos la última movilización (no eliminada) del
-  // vehículo para alimentar la alerta de continuidad. Reusamos el endpoint
-  // `/movilizaciones/last-by-vehiculo/:vehiculoId` ya existente.
+  // Al cambiar el vehículo (SOLO en alta): traemos la última movilización
+  // del vehículo para alimentar la alerta de continuidad de creación.
+  // En edición no se usa: tras registrar el dispensado pueden haberse hecho
+  // muchas movilizaciones más, así que comparar contra "la última" no aplica.
   useEffect(() => {
     if (!open) return;
+    if (editing) {
+      setUltimaMov(null);
+      return;
+    }
     if (!vehiculo) {
       setUltimaMov(null);
       return;
@@ -130,7 +135,7 @@ export const DispensadoForm = ({
     return () => {
       cancelled = true;
     };
-  }, [open, vehiculo]);
+  }, [open, editing, vehiculo]);
 
   const cantidadNum = parseDecimal(cantidadGalones);
   const precioNum = parseDecimal(precioGalon);
@@ -139,14 +144,35 @@ export const DispensadoForm = ({
       ? cantidadNum * precioNum
       : null;
 
-  // Alerta informativa (no bloquea): el kilometraje ingresado debe coincidir
-  // con el `kilometrajeFinal` de la última movilización del vehículo.
+  // ---------------------------------------------------------------------------
+  // Alertas de continuidad de kilometraje (no bloquean el submit).
+  //  - Alta:    compara contra el `kilometrajeFinal` de la ÚLTIMA movilización
+  //             del vehículo (o sea, asume que el dispensado se va a registrar
+  //             "ahora" y debería continuar la última lectura).
+  //  - Edición: compara contra las movilizaciones que rodean al dispensado
+  //             (prev/next por fecha) — misma lógica que evalúa la tabla.
+  // ---------------------------------------------------------------------------
   const kmNum = kilometraje === '' ? null : Number(kilometraje);
-  const continuidadAlerta =
+
+  const continuidadCreacionAlerta =
+    !editing &&
     ultimaMov !== null &&
     kmNum !== null &&
     Number.isFinite(kmNum) &&
     kmNum !== ultimaMov.kilometrajeFinal;
+
+  // En edición usamos la continuidad calculada por el backend. La re-evaluamos
+  // contra el valor LIVE del input para que, si el usuario corrige el
+  // kilometraje a uno consistente, la alerta desaparezca de inmediato.
+  const continuidadEdicion = editing ? initial?.continuidad ?? null : null;
+  const continuidadEdicionAlerta =
+    continuidadEdicion !== null &&
+    kmNum !== null &&
+    Number.isFinite(kmNum) &&
+    ((continuidadEdicion.prevKmFinal !== null &&
+      continuidadEdicion.prevKmFinal !== kmNum) ||
+      (continuidadEdicion.nextKmInicial !== null &&
+        continuidadEdicion.nextKmInicial !== kmNum));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -289,16 +315,64 @@ export const DispensadoForm = ({
         </div>
 
         {/* Alerta informativa de continuidad — no bloquea el submit. */}
-        {vehiculo && !ultimaCargando && continuidadAlerta && ultimaMov && (
-          <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-sm">
-            <strong className="font-semibold">Aviso:</strong> el kilometraje
-            final de la última movilización es{' '}
-            <span className="font-mono font-semibold">
-              {ultimaMov.kilometrajeFinal.toLocaleString('es-GT')}
-            </span>{' '}
-            ({formatFecha(ultimaMov.fecha)}) y debe ser igual al actual.
-            Asegúrese de ingresar el kilometraje correcto o reporte el caso con
-            logística.
+        {/*
+          Alta: comparamos contra el kilometraje final de la última
+          movilización registrada del vehículo.
+        */}
+        {!editing &&
+          vehiculo &&
+          !ultimaCargando &&
+          continuidadCreacionAlerta &&
+          ultimaMov && (
+            <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-sm">
+              <strong className="font-semibold">Aviso:</strong> el kilometraje
+              final de la última movilización es{' '}
+              <span className="font-mono font-semibold">
+                {ultimaMov.kilometrajeFinal.toLocaleString('es-GT')}
+              </span>{' '}
+              ({formatFecha(ultimaMov.fecha)}) y debe ser igual al actual.
+              Asegúrese de ingresar el kilometraje correcto o reporte el caso
+              con logística.
+            </div>
+          )}
+
+        {/*
+          Edición: misma alerta que muestra la tabla. Compara contra las
+          movilizaciones que rodean al dispensado (prev por fecha < disp,
+          next por fecha > disp). Si alguno no coincide, mostramos detalle.
+        */}
+        {editing && continuidadEdicion && continuidadEdicionAlerta && (
+          <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-sm space-y-1">
+            <div>
+              <strong className="font-semibold">Aviso:</strong> el kilometraje
+              no coincide con las movilizaciones que rodean este dispensado.
+              Asegúrese de ingresar el kilometraje correcto o reporte el caso
+              con logística.
+            </div>
+            {continuidadEdicion.prevKmFinal !== null &&
+              continuidadEdicion.prevKmFinal !== kmNum && (
+                <div className="pl-3">
+                  • Movilización anterior — km final{' '}
+                  <span className="font-mono font-semibold">
+                    {continuidadEdicion.prevKmFinal.toLocaleString('es-GT')}
+                  </span>
+                  {continuidadEdicion.prevFecha
+                    ? ` (${formatFecha(continuidadEdicion.prevFecha)})`
+                    : ''}
+                </div>
+              )}
+            {continuidadEdicion.nextKmInicial !== null &&
+              continuidadEdicion.nextKmInicial !== kmNum && (
+                <div className="pl-3">
+                  • Movilización siguiente — km inicial{' '}
+                  <span className="font-mono font-semibold">
+                    {continuidadEdicion.nextKmInicial.toLocaleString('es-GT')}
+                  </span>
+                  {continuidadEdicion.nextFecha
+                    ? ` (${formatFecha(continuidadEdicion.nextFecha)})`
+                    : ''}
+                </div>
+              )}
           </div>
         )}
 
