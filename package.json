@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "bash -lc 'git pull --rebase && npm ci && npm run build && (pm2 describe gestion-flota-frontend >/dev/null || pm2 start npm --name gestion-flota-frontend -- run preview -- --host 0.0.0.0 --port 3004) && pm2 restart gestion-flota-frontend && pm2 save'"
+    "deploy": "bash -lc 'git pull --rebase && npm ci && npm run build && (pm2 describe gestion-flota-frontend >/dev/null || pm2 start npm --name gestion-flota-frontend -- run preview -- --host 0.0.0.0) && pm2 restart gestion-flota-frontend && pm2 save'"
   },
   "dependencies": {
     "react": "^19.2.5",
