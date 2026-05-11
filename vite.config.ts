@@ -5,7 +5,8 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const envVars = loadEnv(mode, process.cwd(), '')
-  const port = Number(envVars.VITE_PORT) || 4200
+  // 3005 por defecto: 3004 suele reservarse al API (PORT en el backend)
+  const port = Number(envVars.VITE_PORT) || 3005
   const apiUrl = (envVars.VITE_API_URL ?? '/api').trim()
   const backendPort = Number.parseInt(envVars.BACKEND_PORT ?? '', 10)
   const useApiProxy =
