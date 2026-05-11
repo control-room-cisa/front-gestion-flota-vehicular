@@ -2,6 +2,28 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+/** Hostnames permitidos por Vite (server.allowedHosts). Lee ALLOWED_HOSTS: lista separada por comas; admite URLs (solo se usa el hostname). */
+function parseAllowedHosts(raw: string | undefined): string[] | undefined {
+  if (!raw?.trim()) return undefined
+  const hosts: string[] = []
+  for (const part of raw.split(',')) {
+    const segment = part.trim()
+    if (!segment) continue
+    let host = segment
+    if (segment.includes('://')) {
+      try {
+        host = new URL(segment).hostname
+      } catch {
+        host = segment.replace(/^https?:\/\//i, '').split('/')[0] ?? segment
+      }
+    } else {
+      host = segment.split('/')[0] ?? segment
+    }
+    if (host) hosts.push(host)
+  }
+  return hosts.length ? hosts : undefined
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const envVars = loadEnv(mode, process.cwd(), '')
@@ -24,16 +46,20 @@ export default defineConfig(({ mode }) => {
         }
       : undefined
 
+  const allowedHosts = parseAllowedHosts(envVars.ALLOWED_HOSTS)
+
   return {
     plugins: [react(), tailwindcss()],
     server: {
       port,
       strictPort: true,
+      ...(allowedHosts ? { allowedHosts } : {}),
       ...(proxy ? { proxy } : {}),
     },
     preview: {
       port,
       strictPort: true,
+      ...(allowedHosts ? { allowedHosts } : {}),
       ...(proxy ? { proxy } : {}),
     },
   }
