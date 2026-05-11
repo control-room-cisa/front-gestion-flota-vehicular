@@ -11,11 +11,11 @@ export const LoginPage: React.FC = () => {
   const [error, setError] = useState<string>();
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (codigo_empleado: string, contrasena: string) => {
+  const handleLogin = async (identificador: string, contrasena: string) => {
     setIsLoading(true);
     setError(undefined);
     try {
-      const { usuario } = await login({ codigo_empleado, contrasena });
+      const { usuario } = await login({ identificador, contrasena });
       navigate(getHomeRoute(usuario.roles), { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {

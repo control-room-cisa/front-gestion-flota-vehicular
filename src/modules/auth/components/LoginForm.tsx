@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 
 interface LoginFormProps {
-  onSubmit: (codigo_empleado: string, contrasena: string) => void;
+  onSubmit: (identificador: string, contrasena: string) => void;
   error?: string;
   isLoading?: boolean;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, error, isLoading }) => {
-  const [codigoEmpleado, setCodigoEmpleado] = useState('');
+  const [identificador, setIdentificador] = useState('');
   const [contrasena, setContrasena] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(codigoEmpleado, contrasena);
+    onSubmit(identificador.trim(), contrasena);
   };
 
   return (
@@ -27,8 +27,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, error, isLoading
       )}
       
       <div className="flex flex-col gap-2">
-        <label htmlFor="codigo_empleado" className="text-sm font-semibold text-slate-700">
-          Código de Empleado
+        <label htmlFor="identificador" className="text-sm font-semibold text-slate-700">
+          Código, correo o usuario
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -37,15 +37,20 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, error, isLoading
             </svg>
           </div>
           <input
-            id="codigo_empleado"
+            id="identificador"
+            name="identificador"
             type="text"
-            value={codigoEmpleado}
-            onChange={(e) => setCodigoEmpleado(e.target.value)}
-            placeholder="Ej. EMP001"
+            autoComplete="username"
+            value={identificador}
+            onChange={(e) => setIdentificador(e.target.value)}
+            placeholder="EMP001, correo@dominio.com o usuario"
             required
             className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white/50 backdrop-blur-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none shadow-sm"
           />
         </div>
+        <p className="text-xs text-slate-500">
+          Puedes usar tu código de empleado, correo electrónico o nombre de usuario.
+        </p>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -60,7 +65,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, error, isLoading
           </div>
           <input
             id="contrasena"
+            name="contrasena"
             type="password"
+            autoComplete="current-password"
             value={contrasena}
             onChange={(e) => setContrasena(e.target.value)}
             placeholder="••••••••"
