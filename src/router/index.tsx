@@ -4,6 +4,7 @@ import { DispensadosPage } from '../modules/dispensados/views/DispensadosPage';
 import { EmpresasPage } from '../modules/empresas/views/EmpresasPage';
 import { MovilizacionesPage } from '../modules/movilizaciones/views/MovilizacionesPage';
 import { ReportesPage } from '../modules/reportes/views/ReportesPage';
+import { UsuariosPage } from '../modules/usuarios/views/UsuariosPage';
 import { VehiculosPage } from '../modules/vehiculos/views/VehiculosPage';
 import {
   ProtectedRoute,
@@ -29,6 +30,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowed={['admin']}>
         <RoleHomeView title="Panel de Administración" rol="admin" />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/usuarios',
+    element: (
+      <ProtectedRoute allowed={['admin']}>
+        <UsuariosPage />
       </ProtectedRoute>
     ),
   },

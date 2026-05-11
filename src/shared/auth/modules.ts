@@ -29,6 +29,7 @@ export const APP_MODULES: AppModule[] = [
     allowed: ['controlroom', 'logistica', 'almacen', 'admin'],
   },
   { path: '/admin', label: 'Administración', allowed: ['admin'] },
+  { path: '/usuarios', label: 'Usuarios', allowed: ['admin'] },
   { path: '/empresas', label: 'Empresas', allowed: ['contabilidad', 'admin'] },
   {
     path: '/reportes',
