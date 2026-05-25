@@ -1,11 +1,16 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import * as XLSX from 'xlsx';
 import { useAuth } from '../../../shared/auth/AuthContext';
 import { AppHeader } from '../../../shared/components/AppHeader';
 import { useConfirm } from '../../../shared/components/ConfirmProvider';
 import { SearchableSelect } from '../../../shared/components/SearchableSelect';
+import { useToast } from '../../../shared/components/ToastProvider';
 import { ApiError } from '../../../shared/http/api-client';
-import { isMovilizacionManager } from '../../../shared/types/roles.types';
+import {
+  canExportMovilizaciones,
+  isMovilizacionManager,
+} from '../../../shared/types/roles.types';
 import { empresaService } from '../../empresas/services/empresa.service';
 import type { EmpresaDto } from '../../empresas/types/empresa.types';
 import { usuariosService } from '../../usuarios/services/usuario.service';
@@ -26,6 +31,22 @@ type Modo =
   | { tipo: 'editar'; movilizacion: MovilizacionDto };
 
 const PAGE_SIZE = 20;
+
+/**
+ * Sentinel para la opción "Todos los vehículos" dentro del filtro.
+ * Usa `id = 0` (los ids reales del catálogo son siempre positivos),
+ * de forma que se distingue trivialmente sin necesidad de un tipo
+ * extendido. Cuando se selecciona, el filtro se considera vacío y
+ * el backend recibe `vehiculoId = undefined`.
+ */
+const VEHICULO_FILTRO_TODOS: VehiculoDto = {
+  id: 0,
+  nombre: 'Todos los vehículos',
+  clase: '',
+  activo: true,
+};
+
+const esTodos = (v: VehiculoDto | null): boolean => v?.id === 0;
 
 interface GapInfo {
   fromKm: number;
@@ -61,6 +82,13 @@ const formatFecha = (iso: string): string =>
     timeStyle: 'short',
   });
 
+/** "YYYY/MM/DD HH:mm" en TZ local. Usado en la exportación a Excel. */
+const formatFechaExcel = (iso: string): string => {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 /** "YYYY-MM-DD" del día de hoy en TZ local. */
 const hoyISO = (): string => {
   const d = new Date();
@@ -78,8 +106,10 @@ const finDelDiaISO = (ymd: string): string =>
 
 export const MovilizacionesPage = () => {
   const confirm = useConfirm();
+  const toast = useToast();
   const { usuario } = useAuth();
   const isManager = isMovilizacionManager(usuario?.roles);
+  const puedeExportar = canExportMovilizaciones(usuario?.roles);
 
   const [movilizaciones, setMovilizaciones] = useState<MovilizacionDto[]>([]);
   const [total, setTotal] = useState(0);
@@ -89,6 +119,7 @@ export const MovilizacionesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [modo, setModo] = useState<Modo>({ tipo: 'oculto' });
+  const [exportando, setExportando] = useState(false);
 
   // Filtros (defaults: hoy a hoy).
   const [desde, setDesde] = useState<string>(hoyISO());
@@ -156,10 +187,12 @@ export const MovilizacionesPage = () => {
     setLoading(true);
     setError(undefined);
     try {
+      const vehiculoIdFiltro =
+        vehiculoFiltro && !esTodos(vehiculoFiltro) ? vehiculoFiltro.id : undefined;
       const res = await movilizacionService.list({
         desde: desde ? inicioDelDiaISO(desde) : undefined,
         hasta: hasta ? finDelDiaISO(hasta) : undefined,
-        vehiculoId: vehiculoFiltro?.id,
+        vehiculoId: vehiculoIdFiltro,
         page,
         pageSize: PAGE_SIZE,
       });
@@ -184,6 +217,124 @@ export const MovilizacionesPage = () => {
     setPage(1);
   }, [desde, hasta, vehiculoFiltro]);
 
+  // ---------------------------------------------------------------------------
+  // Exportación a Excel. Pagina contra el backend hasta agotar el dataset
+  // (respetando los filtros aplicados) y genera un archivo .xlsx con las
+  // columnas definidas por el negocio.
+  // ---------------------------------------------------------------------------
+  const exportarExcel = async () => {
+    if (exportando) return;
+    if (!puedeExportar) {
+      toast.error(
+        'No tienes permisos para descargar el reporte de movilizaciones.',
+        'Acceso denegado',
+      );
+      return;
+    }
+    if (desde && hasta && desde > hasta) {
+      toast.warning(
+        '"Desde" no puede ser posterior a "Hasta".',
+        'Filtros inválidos',
+      );
+      return;
+    }
+    setExportando(true);
+    setError(undefined);
+    try {
+      const EXPORT_PAGE_SIZE = 100;
+      const vehiculoIdFiltro =
+        vehiculoFiltro && !esTodos(vehiculoFiltro)
+          ? vehiculoFiltro.id
+          : undefined;
+      const filtros = {
+        desde: desde ? inicioDelDiaISO(desde) : undefined,
+        hasta: hasta ? finDelDiaISO(hasta) : undefined,
+        vehiculoId: vehiculoIdFiltro,
+        pageSize: EXPORT_PAGE_SIZE,
+      };
+
+      const todos: MovilizacionDto[] = [];
+      let paginaActual = 1;
+      let totalRegistros = 0;
+      do {
+        const res = await movilizacionService.list({
+          ...filtros,
+          page: paginaActual,
+        });
+        todos.push(...res.items);
+        totalRegistros = res.total;
+        if (res.items.length === 0) break;
+        paginaActual += 1;
+      } while (todos.length < totalRegistros);
+
+      if (todos.length === 0) {
+        toast.info(
+          'No hay movilizaciones para exportar con los filtros aplicados.',
+          'Sin resultados',
+        );
+        return;
+      }
+
+      const filas = todos.map((m) => ({
+        'Fecha y hora': formatFechaExcel(m.fecha),
+        Vehículo: m.vehiculo.nombre,
+        Usuario: `${m.usuario.nombre} ${m.usuario.apellido}`.trim(),
+        Inicio: m.kilometrajeInicial,
+        Fin: m.kilometrajeFinal,
+        Recorrido: m.kilometrajeFinal - m.kilometrajeInicial,
+        Empresas: m.empresas.map((e) => e.nombre).join(', '),
+        Comentario: m.comentario,
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(filas, {
+        header: [
+          'Fecha y hora',
+          'Vehículo',
+          'Usuario',
+          'Inicio',
+          'Fin',
+          'Recorrido',
+          'Empresas',
+          'Comentario',
+        ],
+      });
+
+      // Anchos de columna aproximados para que el archivo se vea legible
+      // al abrirlo sin tener que ajustar manualmente cada columna.
+      ws['!cols'] = [
+        { wch: 18 }, // Fecha y hora
+        { wch: 24 }, // Vehículo
+        { wch: 28 }, // Usuario
+        { wch: 10 }, // Inicio
+        { wch: 10 }, // Fin
+        { wch: 12 }, // Recorrido
+        { wch: 40 }, // Empresas
+        { wch: 50 }, // Comentario
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Movilizaciones');
+
+      const sufijo =
+        desde && hasta
+          ? desde === hasta
+            ? desde
+            : `${desde}_a_${hasta}`
+          : hoyISO();
+      XLSX.writeFile(wb, `movilizaciones_${sufijo}.xlsx`);
+      toast.success(
+        `Se exportaron ${todos.length} movilizacion${todos.length === 1 ? '' : 'es'}.`,
+        'Excel generado',
+      );
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : 'Error al exportar movilizaciones';
+      toast.error(msg, 'No se pudo generar el Excel');
+    } finally {
+      setExportando(false);
+    }
+  };
+
   const handleSubmit = async (
     data: CreateMovilizacionDto | UpdateMovilizacionDto,
   ) => {
@@ -206,13 +357,14 @@ export const MovilizacionesPage = () => {
     if (!ok) return;
     try {
       await movilizacionService.remove(m.id);
+      toast.success('Movilización eliminada.', 'Listo');
       await cargar();
     } catch (err) {
       const msg =
         err instanceof ApiError
           ? err.message
           : 'No se pudo eliminar la movilización';
-      window.alert(msg);
+      toast.error(msg, 'Error al eliminar');
     }
   };
 
@@ -223,8 +375,11 @@ export const MovilizacionesPage = () => {
   const desdeRegistro = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const hastaRegistro = Math.min(page * PAGE_SIZE, total);
 
+  // Opciones del filtro: el sentinel "Todos los vehículos" siempre va
+  // al inicio para que se pueda elegir explícitamente desde el listado,
+  // incluso después de haber seleccionado un vehículo individual.
   const vehiculosFiltroOptions = useMemo(
-    () => vehiculos.filter((v) => v.activo),
+    () => [VEHICULO_FILTRO_TODOS, ...vehiculos.filter((v) => v.activo)],
     [vehiculos],
   );
 
@@ -296,13 +451,37 @@ export const MovilizacionesPage = () => {
           <p className="text-sm text-slate-600">
             Registro histórico de kilometrajes movilizados.
           </p>
-          <button
-            type="button"
-            onClick={() => setModo({ tipo: 'crear' })}
-            className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500"
-          >
-            + Nueva movilización
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {puedeExportar && (
+              <button
+                type="button"
+                onClick={exportarExcel}
+                disabled={exportando || loading}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 3a.75.75 0 01.75.75v8.69l2.22-2.22a.75.75 0 111.06 1.06l-3.5 3.5a.75.75 0 01-1.06 0l-3.5-3.5a.75.75 0 111.06-1.06l2.22 2.22V3.75A.75.75 0 0110 3zM3.75 15a.75.75 0 01.75.75v.75c0 .138.112.25.25.25h10.5a.25.25 0 00.25-.25v-.75a.75.75 0 011.5 0v.75A1.75 1.75 0 0115.25 18H4.75A1.75 1.75 0 013 16.5v-.75A.75.75 0 013.75 15z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                {exportando ? 'Generando…' : 'Descargar Excel'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setModo({ tipo: 'crear' })}
+              className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500"
+            >
+              + Nueva movilización
+            </button>
+          </div>
         </div>
 
         {/* Barra de filtros */}
@@ -333,15 +512,56 @@ export const MovilizacionesPage = () => {
             </label>
             <SearchableSelect<VehiculoDto>
               options={vehiculosFiltroOptions}
-              value={vehiculoFiltro}
-              onChange={setVehiculoFiltro}
+              value={vehiculoFiltro ?? VEHICULO_FILTRO_TODOS}
+              onChange={(v) =>
+                setVehiculoFiltro(v && !esTodos(v) ? v : null)
+              }
               getKey={(v) => v.id}
               getLabel={(v) => v.nombre}
-              getSubLabel={(v) => v.clase.toUpperCase()}
-              getSearchText={(v) => `${v.nombre} ${v.clase}`}
+              getSubLabel={(v) =>
+                esTodos(v) ? undefined : v.clase.toUpperCase()
+              }
+              getSearchText={(v) =>
+                esTodos(v) ? 'todos los vehiculos' : `${v.nombre} ${v.clase}`
+              }
+              renderOption={(v, { active, selected }) => {
+                if (esTodos(v)) {
+                  return (
+                    <span
+                      className={
+                        'flex items-center gap-2 font-semibold ' +
+                        (active || selected
+                          ? 'text-indigo-700'
+                          : 'text-slate-700')
+                      }
+                    >
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-4 w-4 text-indigo-500"
+                        aria-hidden
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M3 5a2 2 0 012-2h10a2 2 0 012 2v2H3V5zm0 4h14v6a2 2 0 01-2 2H5a2 2 0 01-2-2V9zm3 3a1 1 0 100 2h2a1 1 0 100-2H6z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      Todos los vehículos
+                    </span>
+                  );
+                }
+                return (
+                  <>
+                    <div className="font-medium truncate">{v.nombre}</div>
+                    <div className="text-xs text-slate-500 truncate uppercase">
+                      {v.clase}
+                    </div>
+                  </>
+                );
+              }}
               placeholder="Todos los vehículos"
               emptyText="Sin vehículos"
-              clearable
             />
           </div>
           {fechasInvalidas && (

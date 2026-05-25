@@ -60,6 +60,23 @@ export const isMovilizacionManager = (
 ): boolean => hasRole(userRoles, MOVILIZACION_MANAGER_ROLES);
 
 /**
+ * Roles autorizados para exportar / descargar el reporte
+ * de movilizaciones (Excel y derivados). Incluye contabilidad,
+ * que solo requiere visibilidad para reportería pero no necesita
+ * permisos de edición sobre los registros.
+ */
+export const MOVILIZACION_EXPORT_ROLES: RolNombre[] = [
+  'admin',
+  'controlroom',
+  'contabilidad',
+  'logistica',
+];
+
+export const canExportMovilizaciones = (
+  userRoles: RolNombre[] | undefined,
+): boolean => hasRole(userRoles, MOVILIZACION_EXPORT_ROLES);
+
+/**
  * Roles con acceso al módulo de dispensados de combustible.
  * Cualquiera de estos roles puede ver, crear, editar y eliminar
  * registros de dispensado (ownership-based: el dueño y los demás
