@@ -185,8 +185,13 @@ export const MovilizacionForm = ({
   }, [open, initial, vehiculosOptions, usuariosOptions, isManager, usuario]);
 
   // ---------------------------------------------------------------------------
-  // Al cambiar el vehículo: cargar la última movilización del vehículo
-  // (excluyendo el propio en edición) para alimentar la alerta.
+  // Al cambiar el vehículo o la fecha: cargar la movilización inmediatamente
+  // anterior (la última con `fecha < fechaActual` para ese vehículo, excluyendo
+  // el propio registro en edición). Antes se traía la última creada en general,
+  // lo que daba alertas erróneas cuando se editaba un registro intermedio.
+  //
+  // Se aplica un debounce corto sobre la fecha para evitar pegarle al backend
+  // en cada pulsación dentro del `datetime-local`.
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!open) return;
@@ -194,23 +199,34 @@ export const MovilizacionForm = ({
       setUltima(null);
       return;
     }
+
     let cancelled = false;
-    setUltimaCargando(true);
-    movilizacionService
-      .lastByVehiculo(vehiculo.id, initial?.id)
-      .then((res) => {
-        if (!cancelled) setUltima(res);
-      })
-      .catch(() => {
-        if (!cancelled) setUltima(null);
-      })
-      .finally(() => {
-        if (!cancelled) setUltimaCargando(false);
-      });
+    const beforeFechaISO = (() => {
+      if (!fecha) return undefined;
+      const d = new Date(fecha);
+      return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+    })();
+
+    const timer = setTimeout(() => {
+      setUltimaCargando(true);
+      movilizacionService
+        .lastByVehiculo(vehiculo.id, initial?.id, beforeFechaISO)
+        .then((res) => {
+          if (!cancelled) setUltima(res);
+        })
+        .catch(() => {
+          if (!cancelled) setUltima(null);
+        })
+        .finally(() => {
+          if (!cancelled) setUltimaCargando(false);
+        });
+    }, 250);
+
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, [open, vehiculo, initial?.id]);
+  }, [open, vehiculo, fecha, initial?.id]);
 
   const toggleEmpresa = (id: number) => {
     setEmpresaIds((prev) =>

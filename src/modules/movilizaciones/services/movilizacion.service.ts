@@ -48,11 +48,21 @@ export const movilizacionService = {
     apiClient.delete<MovilizacionDto>(`${BASE}/${id}`, opts),
 
   /**
-   * Última movilización registrada para el vehículo dado. `excludeId` se
-   * usa al editar, para no compararse contra el propio registro.
+   * Movilización inmediatamente anterior para el vehículo dado.
+   * - `excludeId` se usa al editar, para no compararse contra el propio registro.
+   * - `beforeFecha` (ISO) acota el lookup a la última con `fecha < beforeFecha`.
+   *   Sin él, devuelve la última registrada en general.
    */
-  lastByVehiculo: (vehiculoId: number, excludeId?: number) => {
-    const qs = excludeId ? `?excludeId=${excludeId}` : '';
+  lastByVehiculo: (
+    vehiculoId: number,
+    excludeId?: number,
+    beforeFecha?: string,
+  ) => {
+    const params = new URLSearchParams();
+    if (excludeId !== undefined) params.set('excludeId', String(excludeId));
+    if (beforeFecha) params.set('beforeFecha', beforeFecha);
+    const s = params.toString();
+    const qs = s ? `?${s}` : '';
     return apiClient.get<UltimaMovilizacionVehiculoDto | null>(
       `${BASE}/last-by-vehiculo/${vehiculoId}${qs}`,
       opts,
