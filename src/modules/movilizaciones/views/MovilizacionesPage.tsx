@@ -101,12 +101,13 @@ const COL_LG = 'hidden lg:table-cell';
 const iconBtnClass =
   'inline-flex items-center justify-center p-2 rounded-lg border transition-colors shrink-0 disabled:opacity-50';
 
+/** Heroicons v2 mini (20×20, solid) — mismos trazos que el resto de la app. */
 const EyeIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
   <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-    <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+    <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
     <path
       fillRule="evenodd"
-      d="M10 3.75c-3.243 0-5.857 1.46-7.578 3.61C.64 9.337.02 10.17.02 10c0-.17.62-1.003 2.422-2.79C4.163 5.06 6.777 3.6 10 3.6s5.837 1.46 7.578 3.61c1.802 1.787 2.422 2.62 2.422 2.79 0 .17-.62 1.003-2.422 2.79-1.741 2.15-4.355 3.61-7.578 3.61zm0-1.5c2.652 0 4.87-1.195 6.352-3.127C14.87 7.195 12.652 6 10 6S5.13 7.195 3.648 9.123C5.13 11.055 7.348 12.25 10 12.25s4.87-1.195 6.352-3.127C14.87 7.195 12.652 6 10 6z"
+      d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.256 0 7.668 2.733 9.336 6.41a1.651 1.651 0 0 1 0 1.186A10.003 10.003 0 0 1 10 17c-4.257 0-7.669-2.733-9.336-6.41ZM14 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"
       clipRule="evenodd"
     />
   </svg>
@@ -114,7 +115,7 @@ const EyeIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
 
 const PencilIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
   <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-    <path d="m2.695 14.295 1.17-3.505a1 1 0 01.26-.365l8.086-8.086a2.121 2.121 0 113 3l-8.086 8.086a1 1 0 01-.365.26l-3.505 1.17 1.17-1.17zM12.22 4.22l1.56 1.56-1.06 1.06-1.56-1.56 1.06-1.06z" />
+    <path d="m2.695 14.295 1.17-3.505a1 1 0 0 1 .26-.365l8.086-8.086a2.121 2.121 0 1 1 3 3l-8.086 8.086a1 1 0 0 1-.365.26l-3.505 1.17 1.17-1.17ZM12.22 4.22l1.56 1.56-1.06 1.06-1.56-1.56 1.06-1.06Z" />
   </svg>
 );
 
@@ -122,7 +123,7 @@ const TrashIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
   <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
     <path
       fillRule="evenodd"
-      d="M8.75 2A2.75 2.75 0 006 4.75v.5H3.75a.75.75 0 000 1.5h.386l.77 9.256a2.25 2.25 0 002.238 2.044h6.692a2.25 2.25 0 002.238-2.044l.77-9.256h.386a.75.75 0 000-1.5H14v-.5A2.75 2.75 0 0011.25 2h-2.5zm-1.5 2.75v-.5h5.5v.5H7.25zm-.886 2.25h7.272l-.729 8.756a.75.75 0 01-.746.694H7.61a.75.75 0 01-.746-.694l-.729-8.756z"
+      d="M8.75 2A2.75 2.75 0 0 0 6 4.75v.5H3.75a.75.75 0 0 0 0 1.5h.386l.77 9.256a2.25 2.25 0 0 0 2.238 2.044h6.692a2.25 2.25 0 0 0 2.238-2.044l.77-9.256h.386a.75.75 0 0 0 0-1.5H14v-.5A2.75 2.75 0 0 0 11.25 2h-2.5Zm-1.5 1.5v-.5h5.5v.5H7.25Zm-.886 2.25h7.272l-.729 8.756a.75.75 0 0 1-.746.694H7.61a.75.75 0 0 1-.746-.694l-.729-8.756Z"
       clipRule="evenodd"
     />
   </svg>
