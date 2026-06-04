@@ -36,6 +36,8 @@ export interface SearchableSelectProps<T> {
   /** Se muestra al final de cada opción (ej. badges). */
   className?: string;
   id?: string;
+  /** Resalta el control como inválido (borde rojo). */
+  hasError?: boolean;
 }
 
 /**
@@ -61,6 +63,7 @@ export function SearchableSelect<T>({
   clearable = false,
   className,
   id,
+  hasError = false,
 }: SearchableSelectProps<T>) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
@@ -138,7 +141,9 @@ export function SearchableSelect<T>({
     'w-full text-left px-3 py-2 rounded-lg border bg-white outline-none ' +
     (disabled
       ? 'border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed'
-      : 'border-slate-200 hover:border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500');
+      : hasError
+        ? 'border-red-400 hover:border-red-400 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-red-50/40'
+        : 'border-slate-200 hover:border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500');
 
   return (
     <div ref={containerRef} className={`relative ${className ?? ''}`}>
@@ -150,6 +155,7 @@ export function SearchableSelect<T>({
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-invalid={hasError || undefined}
         className={`${baseInputClass} flex items-center justify-between gap-2`}
       >
         <span

@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../../shared/auth/AuthContext';
 import { Modal } from '../../../shared/components/Modal';
 import { SearchableSelect } from '../../../shared/components/SearchableSelect';
+import { useToast } from '../../../shared/components/ToastProvider';
+import { ApiError } from '../../../shared/http/api-client';
 import { isMovilizacionManager } from '../../../shared/types/roles.types';
+import type { ApiErrorDetail } from '../../../shared/types/api.types';
 import type { EmpresaDto } from '../../empresas/types/empresa.types';
 import type { UsuarioListadoDto } from '../../usuarios/types/usuario.types';
 import type { VehiculoDto } from '../../vehiculos/types/vehiculo.types';
@@ -49,6 +52,60 @@ const formatFecha = (iso: string): string =>
     timeStyle: 'short',
   });
 
+type FormField =
+  | 'usuario'
+  | 'vehiculo'
+  | 'kmInicial'
+  | 'kmFinal'
+  | 'fecha'
+  | 'empresaIds'
+  | 'comentario';
+
+type FieldErrors = Partial<Record<FormField, string>>;
+
+/** Mapea paths del backend (Zod / negocio) a campos del formulario. */
+const API_FIELD_MAP: Record<string, FormField> = {
+  'data.fecha': 'fecha',
+  fecha: 'fecha',
+  'data.kilometrajeInicial': 'kmInicial',
+  kilometrajeInicial: 'kmInicial',
+  'data.kilometrajeFinal': 'kmFinal',
+  kilometrajeFinal: 'kmFinal',
+  'data.comentario': 'comentario',
+  comentario: 'comentario',
+  'data.vehiculoId': 'vehiculo',
+  vehiculoId: 'vehiculo',
+  'data.empresaIds': 'empresaIds',
+  empresaIds: 'empresaIds',
+  'data.userId': 'usuario',
+  userId: 'usuario',
+};
+
+const mapApiErrors = (errors: ApiErrorDetail[]): FieldErrors => {
+  const out: FieldErrors = {};
+  for (const e of errors) {
+    if (!e.field) continue;
+    const key = API_FIELD_MAP[e.field];
+    if (key && !out[key]) out[key] = e.message;
+  }
+  return out;
+};
+
+const inputClass = (hasError: boolean, extra = '') =>
+  [
+    'px-3 py-2 rounded-lg border outline-none',
+    hasError
+      ? 'border-red-400 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-red-50/40'
+      : 'border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500',
+    extra,
+  ].join(' ');
+
+const labelClass = (hasError: boolean) =>
+  `text-sm font-semibold ${hasError ? 'text-red-600' : 'text-slate-700'}`;
+
+const FieldError = ({ message }: { message?: string }) =>
+  message ? <p className="text-xs text-red-600">{message}</p> : null;
+
 export const MovilizacionForm = ({
   open,
   initial,
@@ -59,6 +116,7 @@ export const MovilizacionForm = ({
   onSubmit,
 }: MovilizacionFormProps) => {
   const { usuario } = useAuth();
+  const toast = useToast();
   const editing = Boolean(initial);
 
   const isManager = isMovilizacionManager(usuario?.roles);
@@ -69,8 +127,9 @@ export const MovilizacionForm = ({
   const [kmInicial, setKmInicial] = useState('');
   const [kmFinal, setKmFinal] = useState('');
   const [comentario, setComentario] = useState('');
+  const [esViaje, setEsViaje] = useState(false);
   const [empresaIds, setEmpresaIds] = useState<number[]>([]);
-  const [error, setError] = useState<string>();
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
   const [ultima, setUltima] = useState<UltimaMovilizacionVehiculoDto | null>(
@@ -125,7 +184,8 @@ export const MovilizacionForm = ({
     setKmInicial(initial ? String(initial.kilometrajeInicial) : '');
     setKmFinal(initial ? String(initial.kilometrajeFinal) : '');
     setComentario(initial?.comentario ?? '');
-    setError(undefined);
+    setEsViaje(initial?.esViaje ?? false);
+    setFieldErrors({});
     setUltima(null);
 
     // Vehículo seleccionado.
@@ -229,9 +289,81 @@ export const MovilizacionForm = ({
   }, [open, vehiculo, fecha, initial?.id]);
 
   const toggleEmpresa = (id: number) => {
+    clearField('empresaIds');
     setEmpresaIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
+  };
+
+  const clearField = (field: FormField) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const showValidationToast = (errs: FieldErrors, fallbackMessage?: string) => {
+    const messages = Object.values(errs);
+    if (messages.length === 0) {
+      toast.warning(fallbackMessage ?? 'Revisa el formulario.', 'Datos inválidos');
+      return;
+    }
+    toast.warning(
+      messages.length === 1
+        ? messages[0]!
+        : fallbackMessage ?? `Hay ${messages.length} campos con errores. Revisa el formulario.`,
+      'Datos inválidos',
+    );
+  };
+
+  const applyFieldErrors = (errs: FieldErrors, toastMessage?: string) => {
+    setFieldErrors(errs);
+    showValidationToast(errs, toastMessage);
+  };
+
+  const validateClient = (): FieldErrors => {
+    const errs: FieldErrors = {};
+
+    if (!vehiculo) errs.vehiculo = 'Selecciona un vehículo';
+    if (isManager && !usuarioSel) errs.usuario = 'Selecciona un usuario';
+
+    const kmIni = Number(kmInicial);
+    const kmFin = Number(kmFinal);
+
+    if (kmInicial === '' || !Number.isInteger(kmIni)) {
+      errs.kmInicial = 'Ingresa un kilometraje inicial entero válido';
+    }
+    if (kmFinal === '' || !Number.isInteger(kmFin)) {
+      errs.kmFinal = 'Ingresa un kilometraje final entero válido';
+    }
+    if (
+      Number.isInteger(kmIni) &&
+      Number.isInteger(kmFin) &&
+      kmFin < kmIni
+    ) {
+      errs.kmFinal = 'El kilometraje final debe ser mayor o igual al inicial';
+    }
+
+    if (!fecha.trim()) {
+      errs.fecha = 'La fecha y hora son obligatorias';
+    } else if (Number.isNaN(new Date(fecha).getTime())) {
+      errs.fecha = 'Fecha inválida';
+    }
+
+    if (isManager && empresaIds.length === 0) {
+      errs.empresaIds = 'Selecciona al menos una empresa';
+    }
+    if (noTieneEmpresa) {
+      errs.empresaIds =
+        'No tienes una empresa asignada. Contacta al administrador.';
+    }
+    if (!comentario.trim()) {
+      errs.comentario = 'El comentario es obligatorio';
+    }
+
+    return errs;
   };
 
   // No-manager: la empresa siempre es la del usuario. Se muestra como info
@@ -272,40 +404,16 @@ export const MovilizacionForm = ({
   // ---------------------------------------------------------------------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(undefined);
+    setFieldErrors({});
 
-    if (!vehiculo) {
-      setError('Selecciona un vehículo');
-      return;
-    }
-    if (isManager && !usuarioSel) {
-      setError('Selecciona un usuario');
+    const clientErrors = validateClient();
+    if (Object.keys(clientErrors).length > 0) {
+      applyFieldErrors(clientErrors);
       return;
     }
 
     const kmIni = Number(kmInicial);
     const kmFin = Number(kmFinal);
-
-    if (!Number.isInteger(kmIni) || !Number.isInteger(kmFin)) {
-      setError('Los kilometrajes deben ser números enteros');
-      return;
-    }
-    if (kmFin < kmIni) {
-      setError('El kilometraje final debe ser mayor o igual al inicial');
-      return;
-    }
-    if (isManager && empresaIds.length === 0) {
-      setError('Selecciona al menos una empresa');
-      return;
-    }
-    if (noTieneEmpresa) {
-      setError('No tienes una empresa asignada. Contacta al administrador.');
-      return;
-    }
-    if (!comentario.trim()) {
-      setError('El comentario es obligatorio');
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -314,15 +422,28 @@ export const MovilizacionForm = ({
         kilometrajeInicial: kmIni,
         kilometrajeFinal: kmFin,
         comentario: comentario.trim(),
-        vehiculoId: vehiculo.id,
+        vehiculoId: vehiculo!.id,
       };
       if (isManager) {
         (payload as CreateMovilizacionDto).empresaIds = empresaIds;
         if (usuarioSel) (payload as CreateMovilizacionDto).userId = usuarioSel.id;
+        (payload as CreateMovilizacionDto).esViaje = esViaje;
       }
       await onSubmit(payload);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar');
+      if (err instanceof ApiError && err.errors.length > 0) {
+        const mapped = mapApiErrors(err.errors);
+        if (Object.keys(mapped).length > 0) {
+          applyFieldErrors(mapped, err.message);
+        } else {
+          toast.error(err.message, 'No se pudo guardar');
+        }
+      } else {
+        toast.error(
+          err instanceof Error ? err.message : 'Error al guardar',
+          'No se pudo guardar',
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -369,20 +490,17 @@ export const MovilizacionForm = ({
       }
     >
       <form id="movilizacion-form" onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-sm">
-            {error}
-          </div>
-        )}
-
         {/* Usuario */}
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-semibold text-slate-700">Usuario</label>
+          <label className={labelClass(Boolean(fieldErrors.usuario))}>Usuario</label>
           {isManager ? (
             <SearchableSelect<UsuarioListadoDto>
               options={usuariosOptions}
               value={usuarioSel}
-              onChange={setUsuarioSel}
+              onChange={(v) => {
+                setUsuarioSel(v);
+                clearField('usuario');
+              }}
               getKey={(u) => u.id}
               getLabel={(u) => `${u.nombre} ${u.apellido}`}
               getSubLabel={(u) =>
@@ -396,6 +514,7 @@ export const MovilizacionForm = ({
               placeholder="Buscar por nombre o código..."
               emptyText="Sin usuarios"
               required
+              hasError={Boolean(fieldErrors.usuario)}
             />
           ) : (
             <input
@@ -405,15 +524,19 @@ export const MovilizacionForm = ({
               className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 cursor-not-allowed"
             />
           )}
+          <FieldError message={fieldErrors.usuario} />
         </div>
 
         {/* Vehículo */}
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-semibold text-slate-700">Vehículo</label>
+          <label className={labelClass(Boolean(fieldErrors.vehiculo))}>Vehículo</label>
           <SearchableSelect<VehiculoDto>
             options={vehiculosOptions}
             value={vehiculo}
-            onChange={setVehiculo}
+            onChange={(v) => {
+              setVehiculo(v);
+              clearField('vehiculo');
+            }}
             getKey={(v) => v.id}
             getLabel={(v) => v.nombre}
             getSubLabel={(v) =>
@@ -426,13 +549,15 @@ export const MovilizacionForm = ({
             placeholder="Buscar por clase o nombre..."
             emptyText="Sin vehículos"
             required
+            hasError={Boolean(fieldErrors.vehiculo)}
           />
+          <FieldError message={fieldErrors.vehiculo} />
         </div>
 
         {/* Bloque kilometrajes + fecha */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-semibold text-slate-700">
+            <label className={labelClass(Boolean(fieldErrors.kmInicial))}>
               Kilometraje inicial
             </label>
             <input
@@ -441,13 +566,18 @@ export const MovilizacionForm = ({
               step={1}
               min={0}
               value={kmInicial}
-              onChange={(e) => setKmInicial(e.target.value)}
+              onChange={(e) => {
+                setKmInicial(e.target.value);
+                clearField('kmInicial');
+              }}
               required
-              className="px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono"
+              aria-invalid={Boolean(fieldErrors.kmInicial) || undefined}
+              className={inputClass(Boolean(fieldErrors.kmInicial), 'font-mono')}
             />
+            <FieldError message={fieldErrors.kmInicial} />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-semibold text-slate-700">
+            <label className={labelClass(Boolean(fieldErrors.kmFinal))}>
               Kilometraje final
             </label>
             <input
@@ -456,10 +586,15 @@ export const MovilizacionForm = ({
               step={1}
               min={0}
               value={kmFinal}
-              onChange={(e) => setKmFinal(e.target.value)}
+              onChange={(e) => {
+                setKmFinal(e.target.value);
+                clearField('kmFinal');
+              }}
               required
-              className="px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono"
+              aria-invalid={Boolean(fieldErrors.kmFinal) || undefined}
+              className={inputClass(Boolean(fieldErrors.kmFinal), 'font-mono')}
             />
+            <FieldError message={fieldErrors.kmFinal} />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-sm font-semibold text-slate-700">
@@ -481,16 +616,21 @@ export const MovilizacionForm = ({
             )}
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-semibold text-slate-700">
+            <label className={labelClass(Boolean(fieldErrors.fecha))}>
               Fecha y hora
             </label>
             <input
               type="datetime-local"
               value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
+              onChange={(e) => {
+                setFecha(e.target.value);
+                clearField('fecha');
+              }}
               required
-              className="px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              aria-invalid={Boolean(fieldErrors.fecha) || undefined}
+              className={inputClass(Boolean(fieldErrors.fecha))}
             />
+            <FieldError message={fieldErrors.fecha} />
           </div>
         </div>
 
@@ -515,14 +655,21 @@ export const MovilizacionForm = ({
         {isManager ? (
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-semibold text-slate-700">
+              <label className={labelClass(Boolean(fieldErrors.empresaIds))}>
                 Empresas movilizadas
               </label>
               <span className="text-xs text-slate-500">
                 {empresaIds.length} seleccionada{empresaIds.length === 1 ? '' : 's'}
               </span>
             </div>
-            <div className="border border-slate-200 rounded-lg max-h-44 overflow-y-auto divide-y divide-slate-100">
+            <div
+              className={
+                'border rounded-lg max-h-44 overflow-y-auto divide-y divide-slate-100 ' +
+                (fieldErrors.empresaIds
+                  ? 'border-red-400 bg-red-50/40'
+                  : 'border-slate-200')
+              }
+            >
               {empresasActivas.length === 0 ? (
                 <p className="p-3 text-sm text-slate-500">
                   No hay empresas disponibles
@@ -550,10 +697,11 @@ export const MovilizacionForm = ({
                 })
               )}
             </div>
+            <FieldError message={fieldErrors.empresaIds} />
           </div>
         ) : (
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-semibold text-slate-700">Empresa</label>
+            <label className={labelClass(Boolean(fieldErrors.empresaIds))}>Empresa</label>
             {empresasInitialNoManager && empresasInitialNoManager.length > 0 ? (
               <div className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 flex flex-wrap gap-1">
                 {empresasInitialNoManager.map((e) => (
@@ -579,26 +727,49 @@ export const MovilizacionForm = ({
                 registrar movilizaciones.
               </div>
             )}
+            <FieldError message={fieldErrors.empresaIds} />
             <span className="text-xs text-slate-500">
               La empresa la asigna automáticamente el sistema según tu perfil.
             </span>
           </div>
         )}
 
+        {isManager && (
+          <label className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100">
+            <input
+              type="checkbox"
+              checked={esViaje}
+              onChange={(e) => setEsViaje(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="text-sm text-slate-800">
+              <span className="font-semibold">Es viaje</span>
+              <span className="block text-xs text-slate-500">
+                Marca esta movilización como un viaje.
+              </span>
+            </span>
+          </label>
+        )}
+
         {/* Comentario */}
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-semibold text-slate-700">
+          <label className={labelClass(Boolean(fieldErrors.comentario))}>
             Comentario
           </label>
           <textarea
             value={comentario}
-            onChange={(e) => setComentario(e.target.value)}
+            onChange={(e) => {
+              setComentario(e.target.value);
+              clearField('comentario');
+            }}
             maxLength={500}
             required
             rows={3}
-            className="px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none"
+            aria-invalid={Boolean(fieldErrors.comentario) || undefined}
+            className={inputClass(Boolean(fieldErrors.comentario), 'resize-none')}
             placeholder="Detalle del recorrido, motivo, observaciones..."
           />
+          <FieldError message={fieldErrors.comentario} />
           <span className="text-xs text-slate-500 self-end">
             {comentario.length}/500
           </span>

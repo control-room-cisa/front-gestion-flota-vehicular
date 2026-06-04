@@ -28,6 +28,7 @@ export interface MovilizacionDto {
   kilometrajeInicial: number;
   kilometrajeFinal: number;
   comentario: string;
+  esViaje: boolean;
   createdBy: number;
   createdAt: string;
   updatedAt: string;
@@ -44,6 +45,8 @@ export interface CreateMovilizacionDto {
   comentario: string;
   vehiculoId: number;
   empresaIds: number[];
+  /** Solo lo respetan controlroom / logistica / admin. */
+  esViaje?: boolean;
   /** Sólo lo respetan los managers; los demás siempre son ellos mismos. */
   userId?: number;
 }
@@ -55,6 +58,8 @@ export interface UpdateMovilizacionDto {
   comentario?: string;
   vehiculoId?: number;
   empresaIds?: number[];
+  /** Solo lo respetan controlroom / logistica / admin. */
+  esViaje?: boolean;
   userId?: number;
 }
 

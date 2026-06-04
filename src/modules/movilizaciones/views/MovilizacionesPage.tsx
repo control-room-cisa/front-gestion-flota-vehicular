@@ -282,6 +282,7 @@ export const MovilizacionesPage = () => {
         Inicio: m.kilometrajeInicial,
         Fin: m.kilometrajeFinal,
         Recorrido: m.kilometrajeFinal - m.kilometrajeInicial,
+        'Es viaje': m.esViaje ? 'Sí' : 'No',
         Empresas: m.empresas.map((e) => e.nombre).join(', '),
         Comentario: m.comentario,
       }));
@@ -294,6 +295,7 @@ export const MovilizacionesPage = () => {
           'Inicio',
           'Fin',
           'Recorrido',
+          'Es viaje',
           'Empresas',
           'Comentario',
         ],
@@ -308,6 +310,7 @@ export const MovilizacionesPage = () => {
         { wch: 10 }, // Inicio
         { wch: 10 }, // Fin
         { wch: 12 }, // Recorrido
+        { wch: 10 }, // Es viaje
         { wch: 40 }, // Empresas
         { wch: 50 }, // Comentario
       ];
@@ -602,6 +605,12 @@ export const MovilizacionesPage = () => {
                 >
                   Rec.
                 </th>
+                <th
+                  className="px-2 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
+                  title="Indica si es un viaje"
+                >
+                  Viaje
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Empresas</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Comentario</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">Acciones</th>
@@ -610,13 +619,13 @@ export const MovilizacionesPage = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={10} className="px-4 py-8 text-center text-slate-500">
                     Cargando...
                   </td>
                 </tr>
               ) : movilizaciones.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={10} className="px-4 py-8 text-center text-slate-500">
                     Sin registros para los filtros aplicados.
                   </td>
                 </tr>
@@ -685,6 +694,15 @@ export const MovilizacionesPage = () => {
                         <td className="px-2 py-3 text-sm font-mono text-right text-indigo-700 font-semibold whitespace-nowrap">
                           {recorrido.toLocaleString('es-GT')}
                         </td>
+                        <td className="px-2 py-3 text-sm text-center whitespace-nowrap">
+                          {m.esViaje ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-700">
+                              Sí
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-sm text-slate-800">
                           <div className="flex flex-wrap gap-1">
                             {m.empresas.map((e) => (
@@ -731,7 +749,7 @@ export const MovilizacionesPage = () => {
                       {gap && (
                         <tr className="bg-red-50">
                           <td
-                            colSpan={9}
+                            colSpan={10}
                             className="px-4 py-2.5 text-sm text-red-700 border-l-4 border-l-red-400"
                           >
                             <div className="flex items-center justify-center gap-2 text-center">
