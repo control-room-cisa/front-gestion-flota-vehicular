@@ -17,6 +17,7 @@ import { usuariosService } from '../../usuarios/services/usuario.service';
 import type { UsuarioListadoDto } from '../../usuarios/types/usuario.types';
 import { vehiculoService } from '../../vehiculos/services/vehiculo.service';
 import type { VehiculoDto } from '../../vehiculos/types/vehiculo.types';
+import { MovilizacionDetalleModal } from '../components/MovilizacionDetalleModal';
 import { MovilizacionForm } from '../components/MovilizacionForm';
 import { movilizacionService } from '../services/movilizacion.service';
 import type {
@@ -82,6 +83,51 @@ const formatFecha = (iso: string): string =>
     timeStyle: 'short',
   });
 
+/** Fecha y hora en dos líneas (como la celda de usuario). */
+const formatFechaPartes = (iso: string): { fecha: string; hora: string } => {
+  const d = new Date(iso);
+  return {
+    fecha: d.toLocaleDateString('es-GT', { dateStyle: 'short' }),
+    hora: d.toLocaleTimeString('es-GT', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+  };
+};
+
+/** Columnas visibles solo desde `lg` (1024px) en adelante. Entre md y lg la tabla usa layout compacto. */
+const COL_LG = 'hidden lg:table-cell';
+
+const iconBtnClass =
+  'inline-flex items-center justify-center p-2 rounded-lg border transition-colors shrink-0 disabled:opacity-50';
+
+const EyeIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+    <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+    <path
+      fillRule="evenodd"
+      d="M10 3.75c-3.243 0-5.857 1.46-7.578 3.61C.64 9.337.02 10.17.02 10c0-.17.62-1.003 2.422-2.79C4.163 5.06 6.777 3.6 10 3.6s5.837 1.46 7.578 3.61c1.802 1.787 2.422 2.62 2.422 2.79 0 .17-.62 1.003-2.422 2.79-1.741 2.15-4.355 3.61-7.578 3.61zm0-1.5c2.652 0 4.87-1.195 6.352-3.127C14.87 7.195 12.652 6 10 6S5.13 7.195 3.648 9.123C5.13 11.055 7.348 12.25 10 12.25s4.87-1.195 6.352-3.127C14.87 7.195 12.652 6 10 6z"
+      clipRule="evenodd"
+    />
+  </svg>
+);
+
+const PencilIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+    <path d="m2.695 14.295 1.17-3.505a1 1 0 01.26-.365l8.086-8.086a2.121 2.121 0 113 3l-8.086 8.086a1 1 0 01-.365.26l-3.505 1.17 1.17-1.17zM12.22 4.22l1.56 1.56-1.06 1.06-1.56-1.56 1.06-1.06z" />
+  </svg>
+);
+
+const TrashIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+    <path
+      fillRule="evenodd"
+      d="M8.75 2A2.75 2.75 0 006 4.75v.5H3.75a.75.75 0 000 1.5h.386l.77 9.256a2.25 2.25 0 002.238 2.044h6.692a2.25 2.25 0 002.238-2.044l.77-9.256h.386a.75.75 0 000-1.5H14v-.5A2.75 2.75 0 0011.25 2h-2.5zm-1.5 2.75v-.5h5.5v.5H7.25zm-.886 2.25h7.272l-.729 8.756a.75.75 0 01-.746.694H7.61a.75.75 0 01-.746-.694l-.729-8.756z"
+      clipRule="evenodd"
+    />
+  </svg>
+);
+
 /** "YYYY/MM/DD HH:mm" en TZ local. Usado en la exportación a Excel. */
 const formatFechaExcel = (iso: string): string => {
   const d = new Date(iso);
@@ -119,6 +165,7 @@ export const MovilizacionesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [modo, setModo] = useState<Modo>({ tipo: 'oculto' });
+  const [detalle, setDetalle] = useState<MovilizacionDto | null>(null);
   const [exportando, setExportando] = useState(false);
 
   // Filtros (defaults: hoy a hoy).
@@ -449,7 +496,7 @@ export const MovilizacionesPage = () => {
     <div className="min-h-screen bg-slate-50">
       <AppHeader title="Movilizaciones" subtitle="Ingreso de kilometrajes" />
 
-      <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6 min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-600">
             Registro histórico de kilometrajes movilizados.
@@ -581,12 +628,13 @@ export const MovilizacionesPage = () => {
         )}
 
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-slate-200">
+          <div className="overflow-x-auto lg:overflow-visible overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+          <table className="w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Fecha</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Usuario</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Vehículo</th>
+                <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Fecha</th>
+                <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}>Usuario</th>
+                <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Vehículo</th>
                 <th
                   className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
                   title="Kilometraje inicial"
@@ -606,14 +654,14 @@ export const MovilizacionesPage = () => {
                   Rec.
                 </th>
                 <th
-                  className="px-2 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
+                  className={`px-2 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap ${COL_LG}`}
                   title="Indica si es un viaje"
                 >
                   Viaje
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Empresas</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Comentario</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">Acciones</th>
+                <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}>Empresas</th>
+                <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}>Comentario</th>
+                <th className="px-2 lg:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -643,13 +691,20 @@ export const MovilizacionesPage = () => {
                     'px-2 py-3 text-sm text-right font-mono whitespace-nowrap ' +
                     (alert ? 'text-red-700' : 'text-slate-800');
 
+                  const { fecha: fechaTxt, hora: horaTxt } = formatFechaPartes(m.fecha);
+
                   return (
                     <Fragment key={m.id}>
                       <tr>
-                        <td className="px-4 py-3 text-sm text-slate-800 whitespace-nowrap">
-                          {formatFecha(m.fecha)}
+                        <td className="px-3 lg:px-4 py-3 text-sm text-slate-800">
+                          <div className="font-semibold whitespace-nowrap">
+                            {fechaTxt}
+                          </div>
+                          <div className="text-xs text-slate-500 whitespace-nowrap">
+                            {horaTxt}
+                          </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-800">
+                        <td className={`px-4 py-3 text-sm text-slate-800 ${COL_LG}`}>
                           <div className="font-semibold">
                             {m.usuario.nombre} {m.usuario.apellido}
                           </div>
@@ -657,7 +712,7 @@ export const MovilizacionesPage = () => {
                             {m.usuario.codigo_empleado}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-800">
+                        <td className="px-3 lg:px-4 py-3 text-sm text-slate-800">
                           <div className="font-semibold">{m.vehiculo.nombre}</div>
                           <div className="text-xs font-mono uppercase text-slate-500">
                             {m.vehiculo.clase}
@@ -694,7 +749,7 @@ export const MovilizacionesPage = () => {
                         <td className="px-2 py-3 text-sm font-mono text-right text-indigo-700 font-semibold whitespace-nowrap">
                           {recorrido.toLocaleString('es-GT')}
                         </td>
-                        <td className="px-2 py-3 text-sm text-center whitespace-nowrap">
+                        <td className={`px-2 py-3 text-sm text-center whitespace-nowrap ${COL_LG}`}>
                           {m.esViaje ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-700">
                               Sí
@@ -703,7 +758,7 @@ export const MovilizacionesPage = () => {
                             <span className="text-slate-400">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-800">
+                        <td className={`px-4 py-3 text-sm text-slate-800 ${COL_LG}`}>
                           <div className="flex flex-wrap gap-1">
                             {m.empresas.map((e) => (
                               <span
@@ -717,33 +772,64 @@ export const MovilizacionesPage = () => {
                           </div>
                         </td>
                         <td
-                          className="px-4 py-3 text-sm text-slate-700 max-w-[16rem] cursor-help"
+                          className={`px-4 py-3 text-sm text-slate-700 max-w-[16rem] cursor-help ${COL_LG}`}
                           onMouseEnter={(e) => showCommentTooltip(e, m.comentario)}
                           onMouseLeave={hideCommentTooltip}
                         >
                           <span className="block truncate">{m.comentario}</span>
                         </td>
-                        <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
-                          {m.canManage ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => setModo({ tipo: 'editar', movilizacion: m })}
-                                className="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
-                              >
-                                Editar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => eliminar(m)}
-                                className="px-3 py-1 text-xs font-semibold rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
-                              >
-                                Eliminar
-                              </button>
-                            </>
-                          ) : (
-                            <span className="text-xs text-slate-400">—</span>
-                          )}
+                        <td className="px-2 lg:px-4 py-3 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center justify-end gap-1 lg:gap-2">
+                            <button
+                              type="button"
+                              title="Ver detalle"
+                              aria-label="Ver detalle"
+                              onClick={() => setDetalle(m)}
+                              className={`${iconBtnClass} lg:hidden border-slate-200 text-slate-600 hover:bg-slate-50`}
+                            >
+                              <EyeIcon />
+                            </button>
+                            {m.canManage ? (
+                              <>
+                                <button
+                                  type="button"
+                                  title="Editar"
+                                  aria-label="Editar"
+                                  onClick={() => setModo({ tipo: 'editar', movilizacion: m })}
+                                  className={`${iconBtnClass} lg:hidden border-slate-200 text-slate-600 hover:bg-slate-50`}
+                                >
+                                  <PencilIcon />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Eliminar"
+                                  aria-label="Eliminar"
+                                  onClick={() => eliminar(m)}
+                                  className={`${iconBtnClass} lg:hidden border-red-200 text-red-600 hover:bg-red-50`}
+                                >
+                                  <TrashIcon />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setModo({ tipo: 'editar', movilizacion: m })}
+                                  className="hidden lg:inline-flex px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => eliminar(m)}
+                                  className="hidden lg:inline-flex px-3 py-1 text-xs font-semibold rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                                >
+                                  Eliminar
+                                </button>
+                              </>
+                            ) : (
+                              <span className="hidden lg:inline text-xs text-slate-400">
+                                —
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                       {gap && (
@@ -779,6 +865,7 @@ export const MovilizacionesPage = () => {
               )}
             </tbody>
           </table>
+          </div>
 
           {/* Footer paginador */}
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 bg-slate-50/50 text-sm text-slate-600">
@@ -820,6 +907,20 @@ export const MovilizacionesPage = () => {
         usuarios={usuarios}
         onClose={() => setModo({ tipo: 'oculto' })}
         onSubmit={handleSubmit}
+      />
+
+      <MovilizacionDetalleModal
+        open={detalle !== null}
+        movilizacion={detalle}
+        onClose={() => setDetalle(null)}
+        onEdit={(m) => {
+          setDetalle(null);
+          setModo({ tipo: 'editar', movilizacion: m });
+        }}
+        onDelete={async (m) => {
+          setDetalle(null);
+          await eliminar(m);
+        }}
       />
 
       {commentTooltip &&
