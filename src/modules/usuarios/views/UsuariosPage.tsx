@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ApiError } from '../../../shared/http/api-client';
-import { AppHeader } from '../../../shared/components/AppHeader';
+import {
+  COL_LG,
+  EllipsisVerticalIcon,
+  PencilIcon,
+  TableActionsHeader,
+  actionsCellClass,
+  iconBtnClass,
+  menuDotsBtnClass,
+  menuItemClass,
+  tableScrollWrapClass,
+} from '../../../shared/components/TableActionUi';
 import type { RolNombre } from '../../../shared/types/roles.types';
 import { UsuarioRolesForm } from '../components/UsuarioRolesForm';
 import { usuariosService } from '../services/usuario.service';
@@ -33,6 +44,11 @@ export const UsuariosPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [editando, setEditando] = useState<UsuarioAdminDto | null>(null);
+  const [menuAcciones, setMenuAcciones] = useState<{
+    usuario: UsuarioAdminDto;
+    top: number;
+    right: number;
+  } | null>(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -56,6 +72,32 @@ export const UsuariosPage = () => {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  const toggleMenuAcciones = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    usuario: UsuarioAdminDto,
+  ) => {
+    e.stopPropagation();
+    if (menuAcciones?.usuario.id === usuario.id) {
+      setMenuAcciones(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenuAcciones({
+      usuario,
+      top: rect.bottom + 4,
+      right: window.innerWidth - rect.right,
+    });
+  };
+
+  const cerrarMenuAcciones = () => setMenuAcciones(null);
+
+  useEffect(() => {
+    if (!menuAcciones) return;
+    const onScroll = () => setMenuAcciones(null);
+    window.addEventListener('scroll', onScroll, true);
+    return () => window.removeEventListener('scroll', onScroll, true);
+  }, [menuAcciones]);
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -84,9 +126,7 @@ export const UsuariosPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <AppHeader title="Usuarios" subtitle="Administración" />
-
+    <>
       <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-600">
@@ -104,7 +144,7 @@ export const UsuariosPage = () => {
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar por código, nombre, correo..."
-              className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none w-72"
+              className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none w-full sm:w-72"
             />
           </div>
         </div>
@@ -116,16 +156,17 @@ export const UsuariosPage = () => {
         )}
 
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-slate-200">
+          <div className={tableScrollWrapClass}>
+          <table className="w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Código</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Nombre</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Usuario</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Correo</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Empresa</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Roles</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">Acciones</th>
+                <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Código</th>
+                <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Nombre</th>
+                <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}>Usuario</th>
+                <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}>Correo</th>
+                <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}>Empresa</th>
+                <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Roles</th>
+                <TableActionsHeader />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -136,17 +177,26 @@ export const UsuariosPage = () => {
               ) : (
                 filtrados.map((u) => (
                   <tr key={u.id}>
-                    <td className="px-4 py-3 font-mono text-sm text-slate-800">{u.codigo_empleado}</td>
-                    <td className="px-4 py-3 text-sm text-slate-800">
-                      {u.nombre} {u.apellido}
+                    <td className="px-3 lg:px-4 py-3 font-mono text-sm text-slate-800">{u.codigo_empleado}</td>
+                    <td className="px-3 lg:px-4 py-3 text-sm text-slate-800">
+                      <div className="font-semibold">
+                        {u.nombre} {u.apellido}
+                      </div>
+                      {u.empresa && (
+                        <div className="text-xs text-slate-500 lg:hidden">
+                          <span className="font-mono">{u.empresa.codigo}</span>
+                          {' · '}
+                          {u.empresa.nombre}
+                        </div>
+                      )}
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-700">
+                    <td className={`px-4 py-3 font-mono text-xs text-slate-700 ${COL_LG}`}>
                       {u.nombre_usuario ?? <span className="text-slate-400">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-700">
+                    <td className={`px-4 py-3 text-xs text-slate-700 ${COL_LG}`}>
                       {u.correo_electronico ?? <span className="text-slate-400">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-700">
+                    <td className={`px-4 py-3 text-xs text-slate-700 ${COL_LG}`}>
                       {u.empresa ? (
                         <>
                           <span className="font-mono">{u.empresa.codigo}</span>
@@ -157,7 +207,7 @@ export const UsuariosPage = () => {
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 lg:px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         {u.roles.length === 0 ? (
                           <span className="text-xs text-rose-600 font-semibold">
@@ -178,20 +228,49 @@ export const UsuariosPage = () => {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setEditando(u)}
-                        className="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
-                      >
-                        Editar rol
-                      </button>
+                    <td className={actionsCellClass}>
+                      <div className="inline-flex items-center justify-end">
+                        <div className="flex sm:hidden">
+                          <button
+                            type="button"
+                            title="Más acciones"
+                            aria-label="Más acciones"
+                            aria-haspopup="menu"
+                            aria-expanded={menuAcciones?.usuario.id === u.id}
+                            onClick={(e) => toggleMenuAcciones(e, u)}
+                            className={menuDotsBtnClass}
+                          >
+                            <EllipsisVerticalIcon />
+                          </button>
+                        </div>
+                        <div className="hidden sm:flex lg:hidden">
+                          <button
+                            type="button"
+                            title="Editar roles"
+                            aria-label="Editar roles"
+                            onClick={() => setEditando(u)}
+                            className={`${iconBtnClass} inline-flex border-slate-200 text-slate-600 hover:bg-slate-50`}
+                          >
+                            <PencilIcon />
+                          </button>
+                        </div>
+                        <div className="hidden lg:block">
+                          <button
+                            type="button"
+                            onClick={() => setEditando(u)}
+                            className="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
+                          >
+                            Editar rol
+                          </button>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </main>
 
@@ -201,6 +280,43 @@ export const UsuariosPage = () => {
         onCancel={() => setEditando(null)}
         onSubmit={handleSubmit}
       />
-    </div>
+
+      {menuAcciones &&
+        createPortal(
+          <>
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label="Cerrar menú"
+              className="fixed inset-0 z-40 cursor-default bg-transparent"
+              onClick={cerrarMenuAcciones}
+            />
+            <div
+              role="menu"
+              aria-label="Acciones de usuario"
+              style={{
+                position: 'fixed',
+                top: menuAcciones.top,
+                right: menuAcciones.right,
+              }}
+              className="z-50 min-w-[10.5rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                className={`${menuItemClass} text-slate-700`}
+                onClick={() => {
+                  setEditando(menuAcciones.usuario);
+                  cerrarMenuAcciones();
+                }}
+              >
+                <PencilIcon className="h-4 w-4 shrink-0 text-slate-500" />
+                Editar rol
+              </button>
+            </div>
+          </>,
+          document.body,
+        )}
+    </>
   );
 };

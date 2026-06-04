@@ -2,7 +2,6 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../../shared/auth/AuthContext';
-import { AppHeader } from '../../../shared/components/AppHeader';
 import { useConfirm } from '../../../shared/components/ConfirmProvider';
 import { SearchableSelect } from '../../../shared/components/SearchableSelect';
 import { useToast } from '../../../shared/components/ToastProvider';
@@ -98,8 +97,12 @@ const formatFechaPartes = (iso: string): { fecha: string; hora: string } => {
 /** Columnas visibles solo desde `lg` (1024px) en adelante. Entre md y lg la tabla usa layout compacto. */
 const COL_LG = 'hidden lg:table-cell';
 
+/** Sin `display`: evita que `inline-flex` pise `hidden` en breakpoints responsivos. */
 const iconBtnClass =
-  'inline-flex items-center justify-center p-2 rounded-lg border transition-colors shrink-0 disabled:opacity-50';
+  'items-center justify-center p-2 rounded-lg border transition-colors shrink-0 disabled:opacity-50';
+
+const menuDotsBtnClass =
+  'inline-flex items-center justify-center p-1 text-slate-500 hover:text-slate-800 rounded transition-colors';
 
 /** Heroicons v2 mini (20×20, solid) — mismos trazos que el resto de la app. */
 const EyeIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
@@ -535,9 +538,7 @@ export const MovilizacionesPage = () => {
   }, [movilizaciones]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <AppHeader title="Movilizaciones" subtitle="Ingreso de kilometrajes" />
-
+    <>
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6 min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-600">
@@ -703,7 +704,15 @@ export const MovilizacionesPage = () => {
                 </th>
                 <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}>Empresas</th>
                 <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}>Comentario</th>
-                <th className="px-2 lg:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">Acciones</th>
+                <th
+                  scope="col"
+                  aria-label="Acciones"
+                  className="w-9 max-w-9 px-0.5 py-3 text-right sm:w-auto sm:max-w-none sm:px-2 lg:px-4"
+                >
+                  <span className="hidden sm:inline text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    Acciones
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -820,10 +829,10 @@ export const MovilizacionesPage = () => {
                         >
                           <span className="block truncate">{m.comentario}</span>
                         </td>
-                        <td className="px-2 lg:px-4 py-3 text-right whitespace-nowrap">
-                          <div className="inline-flex items-center justify-end gap-1 lg:gap-2">
-                            {/* xs (&lt; sm): menú ⋮ */}
-                            <div className="sm:hidden">
+                        <td className="w-9 max-w-9 px-0.5 py-3 text-right whitespace-nowrap sm:w-auto sm:max-w-none sm:px-2 lg:px-4">
+                          <div className="inline-flex items-center justify-end">
+                            {/* &lt; sm: solo ⋮ */}
+                            <div className="flex sm:hidden">
                               <button
                                 type="button"
                                 title="Más acciones"
@@ -831,61 +840,72 @@ export const MovilizacionesPage = () => {
                                 aria-haspopup="menu"
                                 aria-expanded={menuAcciones?.mov.id === m.id}
                                 onClick={(e) => toggleMenuAcciones(e, m)}
-                                className={`${iconBtnClass} border-slate-200 text-slate-600 hover:bg-slate-50`}
+                                className={menuDotsBtnClass}
                               >
                                 <EllipsisVerticalIcon />
                               </button>
                             </div>
-                            {/* sm–md: iconos; lg+: botones texto */}
-                            <button
-                              type="button"
-                              title="Ver detalle"
-                              aria-label="Ver detalle"
-                              onClick={() => setDetalle(m)}
-                              className={`${iconBtnClass} hidden sm:inline-flex lg:hidden border-slate-200 text-slate-600 hover:bg-slate-50`}
-                            >
-                              <EyeIcon />
-                            </button>
-                            {m.canManage ? (
-                              <>
-                                <button
-                                  type="button"
-                                  title="Editar"
-                                  aria-label="Editar"
-                                  onClick={() => setModo({ tipo: 'editar', movilizacion: m })}
-                                  className={`${iconBtnClass} hidden sm:inline-flex lg:hidden border-slate-200 text-slate-600 hover:bg-slate-50`}
-                                >
-                                  <PencilIcon />
-                                </button>
-                                <button
-                                  type="button"
-                                  title="Eliminar"
-                                  aria-label="Eliminar"
-                                  onClick={() => eliminar(m)}
-                                  className={`${iconBtnClass} hidden sm:inline-flex lg:hidden border-red-200 text-red-600 hover:bg-red-50`}
-                                >
-                                  <TrashIcon />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setModo({ tipo: 'editar', movilizacion: m })}
-                                  className="hidden lg:inline-flex px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => eliminar(m)}
-                                  className="hidden lg:inline-flex px-3 py-1 text-xs font-semibold rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
-                                >
-                                  Eliminar
-                                </button>
-                              </>
-                            ) : (
-                              <span className="hidden lg:inline text-xs text-slate-400">
-                                —
-                              </span>
-                            )}
+                            {/* sm–lg: iconos (sin ⋮) */}
+                            <div className="hidden sm:flex lg:hidden items-center gap-1">
+                              <button
+                                type="button"
+                                title="Ver detalle"
+                                aria-label="Ver detalle"
+                                onClick={() => setDetalle(m)}
+                                className={`${iconBtnClass} inline-flex border-slate-200 text-slate-600 hover:bg-slate-50`}
+                              >
+                                <EyeIcon />
+                              </button>
+                              {m.canManage && (
+                                <>
+                                  <button
+                                    type="button"
+                                    title="Editar"
+                                    aria-label="Editar"
+                                    onClick={() =>
+                                      setModo({ tipo: 'editar', movilizacion: m })
+                                    }
+                                    className={`${iconBtnClass} inline-flex border-slate-200 text-slate-600 hover:bg-slate-50`}
+                                  >
+                                    <PencilIcon />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Eliminar"
+                                    aria-label="Eliminar"
+                                    onClick={() => eliminar(m)}
+                                    className={`${iconBtnClass} inline-flex border-red-200 text-red-600 hover:bg-red-50`}
+                                  >
+                                    <TrashIcon />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                            {/* lg+: botones texto (sin ⋮ ni iconos) */}
+                            <div className="hidden lg:flex items-center gap-2">
+                              {m.canManage ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setModo({ tipo: 'editar', movilizacion: m })
+                                    }
+                                    className="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => eliminar(m)}
+                                    className="px-3 py-1 text-xs font-semibold rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                                  >
+                                    Eliminar
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="text-xs text-slate-400">—</span>
+                              )}
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -1061,6 +1081,6 @@ export const MovilizacionesPage = () => {
           </>,
           document.body,
         )}
-    </div>
+    </>
   );
 };

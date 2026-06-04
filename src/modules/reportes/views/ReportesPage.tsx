@@ -11,7 +11,6 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { AppHeader } from '../../../shared/components/AppHeader';
 import { SearchableSelect } from '../../../shared/components/SearchableSelect';
 import { vehiculoService } from '../../vehiculos/services/vehiculo.service';
 import type { VehiculoDto } from '../../vehiculos/types/vehiculo.types';
@@ -234,10 +233,7 @@ export const ReportesPage = () => {
   const promedioKmDia = kmData.length > 0 ? totalKmMes / kmData.length : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <AppHeader title="Reportes" subtitle="Rendimiento y operación" />
-
-      <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+    <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
         <div className="bg-white border border-slate-200 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
           <div className="md:col-span-2 flex flex-col gap-1">
             <label className="text-xs font-semibold text-slate-600">
@@ -458,6 +454,5 @@ export const ReportesPage = () => {
           )}
         </section>
       </main>
-    </div>
   );
 };

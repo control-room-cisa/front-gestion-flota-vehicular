@@ -5,7 +5,7 @@ import type { RolNombre } from '../types/roles.types';
  *
  * Es la fuente única de verdad para:
  *  - El menú de navegación (`NavMenu`).
- *  - Las redirecciones por rol (`role-routes.ts` lo consume).
+ *  - La ruta de entrada tras login (`getHomeRoute` en `role-routes.ts`).
  *  - Las protecciones de ruta (`<ProtectedRoute allowed={...} />` debe
  *    coincidir con `allowed` de cada entrada).
  */

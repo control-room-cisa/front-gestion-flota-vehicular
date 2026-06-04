@@ -1,13 +1,13 @@
+import { memo } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { getAccessibleModules } from '../auth/modules';
 
 /**
- * Barra de navegación entre módulos. Filtra automáticamente las
- * entradas según los roles del usuario autenticado. Se renderiza
- * dentro de `AppHeader` y resalta la ruta activa.
+ * Barra de navegación entre módulos. Permanece montada en `AppLayout` al
+ * cambiar de ruta (no vive dentro de cada página). Filtra entradas por rol.
  */
-export const NavMenu = () => {
+export const NavMenu = memo(function NavMenu() {
   const { usuario } = useAuth();
   if (!usuario) return null;
 
@@ -15,7 +15,7 @@ export const NavMenu = () => {
   if (modules.length === 0) return null;
 
   return (
-    <nav className="border-t border-slate-100 bg-white">
+    <nav className="border-t border-slate-100 bg-white" aria-label="Módulos">
       <div className="max-w-6xl mx-auto px-6 flex gap-1 overflow-x-auto">
         {modules.map((m) => (
           <NavLink
@@ -36,4 +36,4 @@ export const NavMenu = () => {
       </div>
     </nav>
   );
-};
+});

@@ -12,7 +12,7 @@ const FullScreenLoader = () => (
 
 /**
  * Solo accesible cuando NO hay sesión. Si ya hay sesión,
- * redirige al home del rol primario del usuario.
+ * redirige al primer módulo disponible del menú.
  */
 export const PublicOnlyRoute = ({ children }: { children: ReactNode }) => {
   const { usuario, isLoading } = useAuth();
