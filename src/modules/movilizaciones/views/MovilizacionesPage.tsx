@@ -129,6 +129,15 @@ const TrashIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
   </svg>
 );
 
+const EllipsisVerticalIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+    <path d="M10 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm0 4a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm0 4a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" />
+  </svg>
+);
+
+const menuItemClass =
+  'w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50';
+
 /** "YYYY/MM/DD HH:mm" en TZ local. Usado en la exportación a Excel. */
 const formatFechaExcel = (iso: string): string => {
   const d = new Date(iso);
@@ -168,6 +177,12 @@ export const MovilizacionesPage = () => {
   const [modo, setModo] = useState<Modo>({ tipo: 'oculto' });
   const [detalle, setDetalle] = useState<MovilizacionDto | null>(null);
   const [exportando, setExportando] = useState(false);
+  /** Menú ⋮ en pantallas &lt; sm (portal fijo para no recortar por overflow de la tabla). */
+  const [menuAcciones, setMenuAcciones] = useState<{
+    mov: MovilizacionDto;
+    top: number;
+    right: number;
+  } | null>(null);
 
   // Filtros (defaults: hoy a hoy).
   const [desde, setDesde] = useState<string>(hoyISO());
@@ -199,6 +214,32 @@ export const MovilizacionesPage = () => {
   };
 
   const hideCommentTooltip = () => setCommentTooltip(null);
+
+  const toggleMenuAcciones = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    mov: MovilizacionDto,
+  ) => {
+    e.stopPropagation();
+    if (menuAcciones?.mov.id === mov.id) {
+      setMenuAcciones(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenuAcciones({
+      mov,
+      top: rect.bottom + 4,
+      right: window.innerWidth - rect.right,
+    });
+  };
+
+  const cerrarMenuAcciones = () => setMenuAcciones(null);
+
+  useEffect(() => {
+    if (!menuAcciones) return;
+    const onScroll = () => setMenuAcciones(null);
+    window.addEventListener('scroll', onScroll, true);
+    return () => window.removeEventListener('scroll', onScroll, true);
+  }, [menuAcciones]);
 
   // -------------------------------------------------------------------------
   // Catálogos: se cargan una vez al montar (no dependen de filtros).
@@ -781,12 +822,27 @@ export const MovilizacionesPage = () => {
                         </td>
                         <td className="px-2 lg:px-4 py-3 text-right whitespace-nowrap">
                           <div className="inline-flex items-center justify-end gap-1 lg:gap-2">
+                            {/* xs (&lt; sm): menú ⋮ */}
+                            <div className="sm:hidden">
+                              <button
+                                type="button"
+                                title="Más acciones"
+                                aria-label="Más acciones"
+                                aria-haspopup="menu"
+                                aria-expanded={menuAcciones?.mov.id === m.id}
+                                onClick={(e) => toggleMenuAcciones(e, m)}
+                                className={`${iconBtnClass} border-slate-200 text-slate-600 hover:bg-slate-50`}
+                              >
+                                <EllipsisVerticalIcon />
+                              </button>
+                            </div>
+                            {/* sm–md: iconos; lg+: botones texto */}
                             <button
                               type="button"
                               title="Ver detalle"
                               aria-label="Ver detalle"
                               onClick={() => setDetalle(m)}
-                              className={`${iconBtnClass} lg:hidden border-slate-200 text-slate-600 hover:bg-slate-50`}
+                              className={`${iconBtnClass} hidden sm:inline-flex lg:hidden border-slate-200 text-slate-600 hover:bg-slate-50`}
                             >
                               <EyeIcon />
                             </button>
@@ -797,7 +853,7 @@ export const MovilizacionesPage = () => {
                                   title="Editar"
                                   aria-label="Editar"
                                   onClick={() => setModo({ tipo: 'editar', movilizacion: m })}
-                                  className={`${iconBtnClass} lg:hidden border-slate-200 text-slate-600 hover:bg-slate-50`}
+                                  className={`${iconBtnClass} hidden sm:inline-flex lg:hidden border-slate-200 text-slate-600 hover:bg-slate-50`}
                                 >
                                   <PencilIcon />
                                 </button>
@@ -806,7 +862,7 @@ export const MovilizacionesPage = () => {
                                   title="Eliminar"
                                   aria-label="Eliminar"
                                   onClick={() => eliminar(m)}
-                                  className={`${iconBtnClass} lg:hidden border-red-200 text-red-600 hover:bg-red-50`}
+                                  className={`${iconBtnClass} hidden sm:inline-flex lg:hidden border-red-200 text-red-600 hover:bg-red-50`}
                                 >
                                   <TrashIcon />
                                 </button>
@@ -938,6 +994,71 @@ export const MovilizacionesPage = () => {
           >
             {commentTooltip.text}
           </div>,
+          document.body,
+        )}
+
+      {menuAcciones &&
+        createPortal(
+          <>
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label="Cerrar menú"
+              className="fixed inset-0 z-40 cursor-default bg-transparent"
+              onClick={cerrarMenuAcciones}
+            />
+            <div
+              role="menu"
+              aria-label="Acciones de movilización"
+              style={{
+                position: 'fixed',
+                top: menuAcciones.top,
+                right: menuAcciones.right,
+              }}
+              className="z-50 min-w-[10.5rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                className={`${menuItemClass} text-slate-700`}
+                onClick={() => {
+                  setDetalle(menuAcciones.mov);
+                  cerrarMenuAcciones();
+                }}
+              >
+                <EyeIcon className="h-4 w-4 shrink-0 text-slate-500" />
+                Ver detalle
+              </button>
+              {menuAcciones.mov.canManage && (
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`${menuItemClass} text-slate-700`}
+                    onClick={() => {
+                      setModo({ tipo: 'editar', movilizacion: menuAcciones.mov });
+                      cerrarMenuAcciones();
+                    }}
+                  >
+                    <PencilIcon className="h-4 w-4 shrink-0 text-slate-500" />
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`${menuItemClass} text-red-600 hover:bg-red-50`}
+                    onClick={() => {
+                      cerrarMenuAcciones();
+                      eliminar(menuAcciones.mov);
+                    }}
+                  >
+                    <TrashIcon className="h-4 w-4 shrink-0" />
+                    Eliminar
+                  </button>
+                </>
+              )}
+            </div>
+          </>,
           document.body,
         )}
     </div>
