@@ -541,10 +541,10 @@ export const MovilizacionForm = ({
                         onChange={() => toggleEmpresa(e.id)}
                         className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                       />
-                      <span className="font-mono text-xs text-slate-500 w-14">
+                      <span className="text-sm text-slate-800">{e.nombre}</span>
+                      <span className="text-xs text-slate-500 font-mono ml-auto">
                         {e.codigo}
                       </span>
-                      <span className="text-sm text-slate-800">{e.nombre}</span>
                     </label>
                   );
                 })
@@ -559,17 +559,17 @@ export const MovilizacionForm = ({
                 {empresasInitialNoManager.map((e) => (
                   <span
                     key={e.id}
-                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-mono bg-indigo-50 text-indigo-700"
-                    title={e.nombre}
+                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700"
+                    title={e.codigo}
                   >
-                    {e.codigo} · {e.nombre}
+                    {e.nombre}
                   </span>
                 ))}
               </div>
             ) : empresaPropia ? (
               <input
                 type="text"
-                value={`${empresaPropia.codigo} · ${empresaPropia.nombre}`}
+                value={empresaPropia.nombre}
                 disabled
                 className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 cursor-not-allowed"
               />

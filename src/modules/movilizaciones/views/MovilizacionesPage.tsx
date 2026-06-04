@@ -690,10 +690,10 @@ export const MovilizacionesPage = () => {
                             {m.empresas.map((e) => (
                               <span
                                 key={e.id}
-                                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-mono bg-indigo-50 text-indigo-700"
-                                title={e.nombre}
+                                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700"
+                                title={e.codigo}
                               >
-                                {e.codigo}
+                                {e.nombre}
                               </span>
                             ))}
                           </div>
