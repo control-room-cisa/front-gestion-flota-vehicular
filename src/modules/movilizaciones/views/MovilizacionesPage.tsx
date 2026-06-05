@@ -24,6 +24,10 @@ import type {
   MovilizacionDto,
   UpdateMovilizacionDto,
 } from '../types/movilizacion.types';
+import {
+  buildGroupedTableRows,
+  type MovilizacionGroupBy,
+} from '../utils/movilizacion-table.utils';
 
 type Modo =
   | { tipo: 'oculto' }
@@ -47,6 +51,16 @@ const VEHICULO_FILTRO_TODOS: VehiculoDto = {
 };
 
 const esTodos = (v: VehiculoDto | null): boolean => v?.id === 0;
+
+const USUARIO_FILTRO_TODOS: UsuarioListadoDto = {
+  id: 0,
+  codigo_empleado: '',
+  nombre: 'Todos los usuarios',
+  apellido: '',
+  empresa: null,
+};
+
+const esTodosUsuario = (u: UsuarioListadoDto | null): boolean => u?.id === 0;
 
 interface GapInfo {
   fromKm: number;
@@ -191,7 +205,12 @@ export const MovilizacionesPage = () => {
   const [desde, setDesde] = useState<string>(hoyISO());
   const [hasta, setHasta] = useState<string>(hoyISO());
   const [vehiculoFiltro, setVehiculoFiltro] = useState<VehiculoDto | null>(null);
+  const [usuarioFiltro, setUsuarioFiltro] = useState<UsuarioListadoDto | null>(
+    null,
+  );
   const [page, setPage] = useState(1);
+  const [groupBy, setGroupBy] = useState<MovilizacionGroupBy>('none');
+  const [soloMisMovilizaciones, setSoloMisMovilizaciones] = useState(false);
 
   // Tooltip flotante para comentarios. Lo renderizamos vía portal en
   // `document.body` para no quedar atrapados por `overflow-hidden` del
@@ -271,6 +290,31 @@ export const MovilizacionesPage = () => {
     };
   }, [isManager]);
 
+  const listQueryBase = useCallback(() => {
+    const vehiculoIdFiltro =
+      vehiculoFiltro && !esTodos(vehiculoFiltro) ? vehiculoFiltro.id : undefined;
+    let userIdFiltro: number | undefined;
+    if (isManager && usuarioFiltro && !esTodosUsuario(usuarioFiltro)) {
+      userIdFiltro = usuarioFiltro.id;
+    } else if (!isManager && soloMisMovilizaciones && usuario?.id) {
+      userIdFiltro = usuario.id;
+    }
+    return {
+      desde: desde ? inicioDelDiaISO(desde) : undefined,
+      hasta: hasta ? finDelDiaISO(hasta) : undefined,
+      vehiculoId: vehiculoIdFiltro,
+      userId: userIdFiltro,
+    };
+  }, [
+    desde,
+    hasta,
+    vehiculoFiltro,
+    usuarioFiltro,
+    isManager,
+    soloMisMovilizaciones,
+    usuario?.id,
+  ]);
+
   // -------------------------------------------------------------------------
   // Listado: se recarga cuando cambian los filtros o la página. El filtro
   // se manda al backend; el frontend nunca filtra el dataset por su cuenta.
@@ -279,17 +323,34 @@ export const MovilizacionesPage = () => {
     setLoading(true);
     setError(undefined);
     try {
-      const vehiculoIdFiltro =
-        vehiculoFiltro && !esTodos(vehiculoFiltro) ? vehiculoFiltro.id : undefined;
-      const res = await movilizacionService.list({
-        desde: desde ? inicioDelDiaISO(desde) : undefined,
-        hasta: hasta ? finDelDiaISO(hasta) : undefined,
-        vehiculoId: vehiculoIdFiltro,
-        page,
-        pageSize: PAGE_SIZE,
-      });
-      setMovilizaciones(res.items);
-      setTotal(res.total);
+      const base = listQueryBase();
+      if (isManager && groupBy !== 'none') {
+        const FETCH_SIZE = 100;
+        const todos: MovilizacionDto[] = [];
+        let pagina = 1;
+        let totalReg = 0;
+        do {
+          const res = await movilizacionService.list({
+            ...base,
+            page: pagina,
+            pageSize: FETCH_SIZE,
+          });
+          todos.push(...res.items);
+          totalReg = res.total;
+          if (res.items.length === 0) break;
+          pagina += 1;
+        } while (todos.length < totalReg);
+        setMovilizaciones(todos);
+        setTotal(totalReg);
+      } else {
+        const res = await movilizacionService.list({
+          ...base,
+          page,
+          pageSize: PAGE_SIZE,
+        });
+        setMovilizaciones(res.items);
+        setTotal(res.total);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Error al cargar movilizaciones',
@@ -297,7 +358,7 @@ export const MovilizacionesPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [desde, hasta, vehiculoFiltro, page]);
+  }, [listQueryBase, page, groupBy, isManager]);
 
   useEffect(() => {
     cargar();
@@ -307,7 +368,13 @@ export const MovilizacionesPage = () => {
   // en una página fuera de rango.
   useEffect(() => {
     setPage(1);
-  }, [desde, hasta, vehiculoFiltro]);
+  }, [desde, hasta, vehiculoFiltro, usuarioFiltro, groupBy, soloMisMovilizaciones]);
+
+  useEffect(() => {
+    if (!isManager && groupBy !== 'none') {
+      setGroupBy('none');
+    }
+  }, [isManager, groupBy]);
 
   // ---------------------------------------------------------------------------
   // Exportación a Excel. Pagina contra el backend hasta agotar el dataset
@@ -334,14 +401,8 @@ export const MovilizacionesPage = () => {
     setError(undefined);
     try {
       const EXPORT_PAGE_SIZE = 100;
-      const vehiculoIdFiltro =
-        vehiculoFiltro && !esTodos(vehiculoFiltro)
-          ? vehiculoFiltro.id
-          : undefined;
       const filtros = {
-        desde: desde ? inicioDelDiaISO(desde) : undefined,
-        hasta: hasta ? finDelDiaISO(hasta) : undefined,
-        vehiculoId: vehiculoIdFiltro,
+        ...listQueryBase(),
         pageSize: EXPORT_PAGE_SIZE,
       };
 
@@ -478,15 +539,36 @@ export const MovilizacionesPage = () => {
     [vehiculos],
   );
 
+  const usuariosFiltroOptions = useMemo(() => {
+    const sorted = [...usuarios].sort((a, b) =>
+      `${a.nombre} ${a.apellido}`.localeCompare(
+        `${b.nombre} ${b.apellido}`,
+        'es',
+      ),
+    );
+    return [USUARIO_FILTRO_TODOS, ...sorted];
+  }, [usuarios]);
+
   const fechasInvalidas = desde && hasta && desde > hasta;
+  const estaAgrupado = isManager && groupBy !== 'none';
+
+  const tableRows = useMemo(
+    () => buildGroupedTableRows(movilizaciones, groupBy),
+    [movilizaciones, groupBy],
+  );
+
+  const filasVisibles = useMemo(
+    () => tableRows.filter((r) => r.kind === 'mov').length,
+    [tableRows],
+  );
 
   // ---------------------------------------------------------------------------
-  // Decoraciones por fila: traslapes + gaps. Se calcula sobre el dataset
-  // visible (página actual). Las gaps se anclan al registro de mayor `kmInicial`
-  // de cada par para que, en orden `fecha desc`, queden visualmente entre las
-  // dos filas relacionadas (cur arriba, prev abajo).
+  // Decoraciones por fila: traslapes + gaps (solo sin agrupar o por vehículo).
   // ---------------------------------------------------------------------------
   const decorations = useMemo<Map<number, RowDecoration>>(() => {
+    if (groupBy === 'usuario' || groupBy === 'empresa') {
+      return new Map();
+    }
     const dec = new Map<number, RowDecoration>();
     const ensure = (id: number): RowDecoration => {
       let d = dec.get(id);
@@ -535,7 +617,7 @@ export const MovilizacionesPage = () => {
     }
 
     return dec;
-  }, [movilizaciones]);
+  }, [movilizaciones, groupBy]);
 
   return (
     <>
@@ -578,7 +660,12 @@ export const MovilizacionesPage = () => {
         </div>
 
         {/* Barra de filtros */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <div
+          className={
+            'bg-white border border-slate-200 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 items-end ' +
+            (isManager ? 'lg:grid-cols-4' : 'lg:grid-cols-3')
+          }
+        >
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-slate-600">Desde</label>
             <input
@@ -599,7 +686,75 @@ export const MovilizacionesPage = () => {
               className="px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
             />
           </div>
-          <div className="flex flex-col gap-1 md:col-span-2">
+          {isManager && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-600">
+                Usuario
+              </label>
+              <SearchableSelect<UsuarioListadoDto>
+                options={usuariosFiltroOptions}
+                value={usuarioFiltro ?? USUARIO_FILTRO_TODOS}
+                onChange={(u) =>
+                  setUsuarioFiltro(u && !esTodosUsuario(u) ? u : null)
+                }
+                getKey={(u) => u.id}
+                getLabel={(u) =>
+                  esTodosUsuario(u)
+                    ? u.nombre
+                    : `${u.nombre} ${u.apellido}`.trim()
+                }
+                getSubLabel={(u) =>
+                  esTodosUsuario(u) ? undefined : u.codigo_empleado
+                }
+                getSearchText={(u) =>
+                  esTodosUsuario(u)
+                    ? 'todos los usuarios'
+                    : `${u.nombre} ${u.apellido} ${u.codigo_empleado}`
+                }
+                renderOption={(u, { active, selected }) => {
+                  if (esTodosUsuario(u)) {
+                    return (
+                      <span
+                        className={
+                          'flex items-center gap-2 font-semibold ' +
+                          (active || selected
+                            ? 'text-indigo-700'
+                            : 'text-slate-700')
+                        }
+                      >
+                        <svg
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          className="h-4 w-4 text-indigo-500"
+                          aria-hidden
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        Todos los usuarios
+                      </span>
+                    );
+                  }
+                  return (
+                    <>
+                      <div className="font-medium truncate">
+                        {u.nombre} {u.apellido}
+                      </div>
+                      <div className="text-xs text-slate-500 font-mono truncate">
+                        {u.codigo_empleado}
+                      </div>
+                    </>
+                  );
+                }}
+                placeholder="Todos los usuarios"
+                emptyText="Sin usuarios"
+              />
+            </div>
+          )}
+          <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-slate-600">
               Vehículo
             </label>
@@ -657,8 +812,49 @@ export const MovilizacionesPage = () => {
               emptyText="Sin vehículos"
             />
           </div>
+          {!isManager && (
+            <div className="sm:col-span-2 lg:col-span-3 flex items-center gap-2 min-h-[2.5rem]">
+              <input
+                id="solo-mis-movilizaciones"
+                type="checkbox"
+                checked={soloMisMovilizaciones}
+                onChange={(e) => setSoloMisMovilizaciones(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <label
+                htmlFor="solo-mis-movilizaciones"
+                className="text-sm text-slate-700 select-none cursor-pointer"
+              >
+                Ver solo mis movilizaciones
+              </label>
+            </div>
+          )}
+          {isManager && (
+            <div className="sm:col-span-2 lg:col-span-4 flex flex-col gap-1 pt-3 border-t border-slate-100">
+              <label className="text-xs font-semibold text-slate-600">
+                Agrupar por
+              </label>
+              <select
+                value={groupBy}
+                onChange={(e) =>
+                  setGroupBy(e.target.value as MovilizacionGroupBy)
+                }
+                className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none max-w-md"
+              >
+                <option value="none">Sin agrupar</option>
+                <option value="usuario">Usuario</option>
+                <option value="vehiculo">Vehículo</option>
+                <option value="empresa">Empresa</option>
+              </select>
+            </div>
+          )}
           {fechasInvalidas && (
-            <p className="md:col-span-4 text-xs text-amber-700">
+            <p
+              className={
+                'sm:col-span-2 text-xs text-amber-700 ' +
+                (isManager ? 'lg:col-span-4' : 'lg:col-span-3')
+              }
+            >
               "Desde" no puede ser posterior a "Hasta".
             </p>
           )}
@@ -729,7 +925,28 @@ export const MovilizacionesPage = () => {
                   </td>
                 </tr>
               ) : (
-                movilizaciones.map((m) => {
+                tableRows.map((row) => {
+                  if (row.kind === 'group') {
+                    return (
+                      <tr
+                        key={`group-${row.id}`}
+                        className="bg-indigo-50/80 border-y border-indigo-100"
+                      >
+                        <td
+                          colSpan={10}
+                          className="px-4 py-2.5 text-sm font-semibold text-indigo-900"
+                        >
+                          {row.label}
+                          <span className="ml-2 font-normal text-indigo-600">
+                            ({row.count}{' '}
+                            {row.count === 1 ? 'registro' : 'registros'})
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  const m = row.mov;
                   const recorrido = m.kilometrajeFinal - m.kilometrajeInicial;
                   const deco = decorations.get(m.id);
                   const overlapInicial = deco?.overlapInicial ?? false;
@@ -745,7 +962,7 @@ export const MovilizacionesPage = () => {
                   const { fecha: fechaTxt, hora: horaTxt } = formatFechaPartes(m.fecha);
 
                   return (
-                    <Fragment key={m.id}>
+                    <Fragment key={row.rowKey}>
                       <tr>
                         <td className="px-3 lg:px-4 py-3 text-sm text-slate-800">
                           <div className="font-semibold whitespace-nowrap">
@@ -944,34 +1161,38 @@ export const MovilizacionesPage = () => {
           </table>
           </div>
 
-          {/* Footer paginador */}
+          {/* Footer paginador / resumen agrupado */}
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 bg-slate-50/50 text-sm text-slate-600">
             <span>
               {total === 0
                 ? 'Sin resultados'
-                : `Mostrando ${desdeRegistro}–${hastaRegistro} de ${total}`}
+                : estaAgrupado
+                  ? `${total} ${total === 1 ? 'movilización' : 'movilizaciones'} · ${filasVisibles} ${filasVisibles === 1 ? 'fila' : 'filas'} en vista`
+                  : `Mostrando ${desdeRegistro}–${hastaRegistro} de ${total}`}
             </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={page <= 1 || loading}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                ← Anterior
-              </button>
-              <span className="text-xs text-slate-500">
-                Página <strong>{page}</strong> de <strong>{totalPages}</strong>
-              </span>
-              <button
-                type="button"
-                disabled={page >= totalPages || loading}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Siguiente →
-              </button>
-            </div>
+            {!estaAgrupado && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={page <= 1 || loading}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ← Anterior
+                </button>
+                <span className="text-xs text-slate-500">
+                  Página <strong>{page}</strong> de <strong>{totalPages}</strong>
+                </span>
+                <button
+                  type="button"
+                  disabled={page >= totalPages || loading}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Siguiente →
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>

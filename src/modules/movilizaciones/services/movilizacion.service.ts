@@ -17,6 +17,7 @@ const buildQueryString = (query: MovilizacionListQuery): string => {
   if (query.hasta) params.set('hasta', query.hasta);
   if (query.vehiculoId !== undefined)
     params.set('vehiculoId', String(query.vehiculoId));
+  if (query.userId !== undefined) params.set('userId', String(query.userId));
   if (query.page !== undefined) params.set('page', String(query.page));
   if (query.pageSize !== undefined)
     params.set('pageSize', String(query.pageSize));

@@ -85,6 +85,8 @@ export interface MovilizacionListQuery {
   /** ISO completo (preferentemente fin de día en TZ local). */
   hasta?: string;
   vehiculoId?: number;
+  /** Dueño del registro. Managers: cualquier usuario; demás: solo el propio. */
+  userId?: number;
   page?: number;
   pageSize?: number;
 }
