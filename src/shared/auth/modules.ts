@@ -1,4 +1,4 @@
-import type { RolNombre } from '../types/roles.types';
+import { REPORTES_ACCESS_ROLES, type RolNombre } from '../types/roles.types';
 
 /**
  * Catálogo de módulos principales de la aplicación.
@@ -34,7 +34,7 @@ export const APP_MODULES: AppModule[] = [
   {
     path: '/reportes',
     label: 'Reportes',
-    allowed: ['logistica', 'contabilidad', 'admin'],
+    allowed: REPORTES_ACCESS_ROLES,
   },
   { path: '/vehiculos', label: 'Vehículos', allowed: ['logistica', 'admin'] },
   { path: '/monitoreo', label: 'Monitoreo', allowed: ['controlroom', 'admin'] },

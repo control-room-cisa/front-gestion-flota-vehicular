@@ -10,6 +10,7 @@ import {
   ProtectedRoute,
   PublicOnlyRoute,
 } from '../shared/auth/route-guards';
+import { REPORTES_ACCESS_ROLES } from '../shared/types/roles.types';
 import { AppLayout } from '../shared/components/AppLayout';
 import type { AppRouteHandle } from '../shared/components/AppLayout';
 import { RoleHomeView } from '../shared/components/RoleHomeView';
@@ -69,7 +70,7 @@ export const router = createBrowserRouter([
       {
         path: '/reportes',
         element: (
-          <ProtectedRoute allowed={['logistica', 'contabilidad', 'admin']}>
+          <ProtectedRoute allowed={REPORTES_ACCESS_ROLES}>
             <ReportesPage />
           </ProtectedRoute>
         ),

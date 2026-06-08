@@ -16,6 +16,7 @@ export const ROLES = [
   'logistica',
   'contabilidad',
   'almacen',
+  'mecanica',
   'admin',
 ] as const;
 
@@ -92,3 +93,14 @@ export const DISPENSADO_MANAGER_ROLES: RolNombre[] = [
 export const isDispensadoManager = (
   userRoles: RolNombre[] | undefined,
 ): boolean => hasRole(userRoles, DISPENSADO_MANAGER_ROLES);
+
+/**
+ * Roles con acceso al módulo de reportes operativos
+ * (rendimiento de combustible, kilómetros diarios, etc.).
+ */
+export const REPORTES_ACCESS_ROLES: RolNombre[] = [
+  'logistica',
+  'contabilidad',
+  'mecanica',
+  'admin',
+];
