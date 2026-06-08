@@ -51,13 +51,6 @@ export const MovilizacionDetalleModal = ({
       onClose={onClose}
       footer={
         <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200 hover:bg-slate-100"
-          >
-            Cerrar
-          </button>
           {movilizacion.canManage && onEdit && (
             <button
               type="button"

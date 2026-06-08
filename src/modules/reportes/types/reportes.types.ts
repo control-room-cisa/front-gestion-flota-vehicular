@@ -29,3 +29,16 @@ export interface KilometrosDiariosDto {
   hasta: string;
   puntos: KilometrosDiariosPunto[];
 }
+
+export interface KilometrajeActualVehiculoDto {
+  vehiculoId: number;
+  nombre: string;
+  clase: string;
+  activo: boolean;
+  kilometraje: number | null;
+  fecha: string | null;
+}
+
+export interface KilometrajesActualesDto {
+  vehiculos: KilometrajeActualVehiculoDto[];
+}

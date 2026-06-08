@@ -14,6 +14,7 @@ import {
 import { SearchableSelect } from '../../../shared/components/SearchableSelect';
 import { vehiculoService } from '../../vehiculos/services/vehiculo.service';
 import type { VehiculoDto } from '../../vehiculos/types/vehiculo.types';
+import { KilometrajesActualesModal } from '../components/KilometrajesActualesModal';
 import { reportesService } from '../services/reportes.service';
 import type {
   KilometrosDiariosDto,
@@ -155,6 +156,7 @@ export const ReportesPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [errorVehiculos, setErrorVehiculos] = useState<string>();
+  const [kmActualesOpen, setKmActualesOpen] = useState(false);
 
   // Catálogo de vehículos (una vez al montar).
   useEffect(() => {
@@ -234,6 +236,21 @@ export const ReportesPage = () => {
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setKmActualesOpen(true)}
+            className="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+          >
+            Ver kilometrajes actuales
+          </button>
+        </div>
+
+        <KilometrajesActualesModal
+          open={kmActualesOpen}
+          onClose={() => setKmActualesOpen(false)}
+        />
+
         <div className="bg-white border border-slate-200 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
           <div className="md:col-span-2 flex flex-col gap-1">
             <label className="text-xs font-semibold text-slate-600">

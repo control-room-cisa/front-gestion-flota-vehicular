@@ -1,5 +1,6 @@
 import { apiClient } from '../../../shared/http/api-client';
 import type {
+  KilometrajesActualesDto,
   KilometrosDiariosDto,
   RendimientoCombustibleDto,
 } from '../types/reportes.types';
@@ -28,4 +29,7 @@ export const reportesService = {
       opts,
     );
   },
+
+  kilometrajesActuales: () =>
+    apiClient.get<KilometrajesActualesDto>(`${BASE}/kilometrajes-actuales`, opts),
 };

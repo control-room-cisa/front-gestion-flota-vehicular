@@ -104,25 +104,16 @@ export const UsuarioRolesForm = ({
       size="lg"
       subtitle="Administración"
       title={`Editar roles — ${usuario.nombre} ${usuario.apellido}`}
+      closeLabel="Cancelar"
       footer={
-        <>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={submitting}
-            className="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-60"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            form="usuario-roles-form"
-            disabled={submitting || !dirty}
-            className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-60"
-          >
-            {submitting ? 'Guardando...' : 'Guardar roles'}
-          </button>
-        </>
+        <button
+          type="submit"
+          form="usuario-roles-form"
+          disabled={submitting || !dirty}
+          className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-60"
+        >
+          {submitting ? 'Guardando...' : 'Guardar roles'}
+        </button>
       }
     >
       <form id="usuario-roles-form" onSubmit={handleSubmit} className="space-y-5">

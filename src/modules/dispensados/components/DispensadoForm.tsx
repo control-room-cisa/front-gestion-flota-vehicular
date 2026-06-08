@@ -233,25 +233,16 @@ export const DispensadoForm = ({
       size="lg"
       busy={submitting}
       onClose={onClose}
+      closeLabel="Cancelar"
       footer={
-        <>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-60"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            form="dispensado-form"
-            disabled={submitting}
-            className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-70"
-          >
-            {submitting ? 'Guardando...' : editing ? 'Actualizar' : 'Registrar'}
-          </button>
-        </>
+        <button
+          type="submit"
+          form="dispensado-form"
+          disabled={submitting}
+          className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-70"
+        >
+          {submitting ? 'Guardando...' : editing ? 'Actualizar' : 'Registrar'}
+        </button>
       }
     >
       <form id="dispensado-form" onSubmit={handleSubmit} className="space-y-4">

@@ -18,7 +18,10 @@ interface ModalProps {
   busy?: boolean;
   onClose: () => void;
   children: ReactNode;
+  /** Acciones del pie (derecha). El cierre queda siempre a la izquierda. */
   footer?: ReactNode;
+  /** Etiqueta del botón de cierre. Por defecto: "Cerrar". */
+  closeLabel?: string;
 }
 
 /**
@@ -35,6 +38,7 @@ export const Modal = ({
   onClose,
   children,
   footer,
+  closeLabel = 'Cerrar',
 }: ModalProps) => {
   useEffect(() => {
     if (!open) return;
@@ -81,8 +85,16 @@ export const Modal = ({
         <div className="px-6 py-5 overflow-y-auto">{children}</div>
 
         {footer && (
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
-            {footer}
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="shrink-0 px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-60"
+            >
+              {closeLabel}
+            </button>
+            <div className="flex justify-end gap-2 flex-wrap">{footer}</div>
           </div>
         )}
       </div>
