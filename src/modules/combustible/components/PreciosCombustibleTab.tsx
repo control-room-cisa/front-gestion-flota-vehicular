@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useConfirm } from '../../../shared/components/ConfirmProvider';
+import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { useConfirm } from "../../../shared/components/ConfirmProvider";
 import {
   EllipsisVerticalIcon,
   PencilIcon,
@@ -10,33 +10,33 @@ import {
   menuDotsBtnClass,
   menuItemClass,
   tableScrollWrapClass,
-} from '../../../shared/components/TableActionUi';
-import { ApiError } from '../../../shared/http/api-client';
-import { PrecioCombustibleForm } from './PrecioCombustibleForm';
-import { precioCombustibleService } from '../services/precio-combustible.service';
+} from "../../../shared/components/TableActionUi";
+import { ApiError } from "../../../shared/http/api-client";
+import { PrecioCombustibleForm } from "./PrecioCombustibleForm";
+import { precioCombustibleService } from "../services/precio-combustible.service";
 import type {
   CreatePrecioCombustibleDto,
   PrecioCombustibleDto,
   UpdatePrecioCombustibleDto,
-} from '../types/precio-combustible.types';
-import { TIPO_COMBUSTIBLE_PRECIO_LABELS } from '../types/precio-combustible.types';
+} from "../types/precio-combustible.types";
+import { TIPO_COMBUSTIBLE_PRECIO_LABELS } from "../types/precio-combustible.types";
 
 type Modo =
-  | { tipo: 'oculto' }
-  | { tipo: 'crear' }
-  | { tipo: 'editar'; precio: PrecioCombustibleDto };
+  | { tipo: "oculto" }
+  | { tipo: "crear" }
+  | { tipo: "editar"; precio: PrecioCombustibleDto };
 
 const PAGE_SIZE = 5;
 
 const formatFecha = (iso: string): string =>
-  new Date(`${iso}T12:00:00`).toLocaleDateString('es-GT', {
-    dateStyle: 'short',
+  new Date(`${iso}T12:00:00`).toLocaleDateString("es-HN", {
+    dateStyle: "short",
   });
 
 const formatPrecio = (raw: string): string => {
   const n = Number(raw);
   if (!Number.isFinite(n)) return raw;
-  return n.toLocaleString('es-GT', {
+  return n.toLocaleString("es-HN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -49,7 +49,7 @@ export const PreciosCombustibleTab = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
-  const [modo, setModo] = useState<Modo>({ tipo: 'oculto' });
+  const [modo, setModo] = useState<Modo>({ tipo: "oculto" });
   const [menuAcciones, setMenuAcciones] = useState<{
     precio: PrecioCombustibleDto;
     top: number;
@@ -68,7 +68,9 @@ export const PreciosCombustibleTab = () => {
       setTotal(res.total);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Error al cargar precios de combustible',
+        err instanceof Error
+          ? err.message
+          : "Error al cargar precios de combustible",
       );
     } finally {
       setLoading(false);
@@ -103,29 +105,29 @@ export const PreciosCombustibleTab = () => {
   useEffect(() => {
     if (!menuAcciones) return;
     const onScroll = () => setMenuAcciones(null);
-    window.addEventListener('scroll', onScroll, true);
-    return () => window.removeEventListener('scroll', onScroll, true);
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
   }, [menuAcciones]);
 
   const handleSubmit = async (
     data: CreatePrecioCombustibleDto | UpdatePrecioCombustibleDto,
   ) => {
-    if (modo.tipo === 'crear') {
+    if (modo.tipo === "crear") {
       await precioCombustibleService.create(data as CreatePrecioCombustibleDto);
       setPage(1);
-    } else if (modo.tipo === 'editar') {
+    } else if (modo.tipo === "editar") {
       await precioCombustibleService.update(modo.precio.id, data);
     }
-    setModo({ tipo: 'oculto' });
+    setModo({ tipo: "oculto" });
     await cargar();
   };
 
   const eliminar = async (precio: PrecioCombustibleDto) => {
     const ok = await confirm({
-      title: 'Eliminar precio',
+      title: "Eliminar precio",
       message: `¿Eliminar el precio vigente del ${formatFecha(precio.fechaInicio)} al ${formatFecha(precio.fechaFin)}?`,
-      confirmText: 'Eliminar',
-      variant: 'danger',
+      confirmText: "Eliminar",
+      variant: "danger",
     });
     if (!ok) return;
     try {
@@ -134,7 +136,7 @@ export const PreciosCombustibleTab = () => {
       else await cargar();
     } catch (err) {
       const msg =
-        err instanceof ApiError ? err.message : 'No se pudo eliminar el precio';
+        err instanceof ApiError ? err.message : "No se pudo eliminar el precio";
       window.alert(msg);
     }
   };
@@ -153,7 +155,7 @@ export const PreciosCombustibleTab = () => {
           </div>
           <button
             type="button"
-            onClick={() => setModo({ tipo: 'crear' })}
+            onClick={() => setModo({ tipo: "crear" })}
             className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500"
           >
             Nuevo precio
@@ -191,13 +193,19 @@ export const PreciosCombustibleTab = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                  <td
+                    colSpan={6}
+                    className="px-4 py-10 text-center text-slate-500"
+                  >
                     Cargando…
                   </td>
                 </tr>
               ) : precios.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                  <td
+                    colSpan={6}
+                    className="px-4 py-10 text-center text-slate-500"
+                  >
                     Sin registros. Agrega el primer precio de combustible.
                   </td>
                 </tr>
@@ -217,7 +225,7 @@ export const PreciosCombustibleTab = () => {
                       {TIPO_COMBUSTIBLE_PRECIO_LABELS[p.tipoCombustible]}
                     </td>
                     <td className="px-3 py-3 text-slate-600 max-w-[240px] truncate">
-                      {p.comentario || '—'}
+                      {p.comentario || "—"}
                     </td>
                     <td className={actionsCellClass}>
                       <button
@@ -239,7 +247,7 @@ export const PreciosCombustibleTab = () => {
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 bg-slate-50/50 text-sm text-slate-600">
           <span>
             {total === 0
-              ? 'Sin resultados'
+              ? "Sin resultados"
               : `Mostrando ${desdeRegistro}–${hastaRegistro} de ${total}`}
           </span>
           <div className="flex items-center gap-2">
@@ -267,9 +275,9 @@ export const PreciosCombustibleTab = () => {
       </section>
 
       <PrecioCombustibleForm
-        open={modo.tipo !== 'oculto'}
-        initial={modo.tipo === 'editar' ? modo.precio : null}
-        onClose={() => setModo({ tipo: 'oculto' })}
+        open={modo.tipo !== "oculto"}
+        initial={modo.tipo === "editar" ? modo.precio : null}
+        onClose={() => setModo({ tipo: "oculto" })}
         onSubmit={handleSubmit}
       />
 
@@ -285,7 +293,7 @@ export const PreciosCombustibleTab = () => {
               role="menuitem"
               className={menuItemClass}
               onClick={() => {
-                setModo({ tipo: 'editar', precio: menuAcciones.precio });
+                setModo({ tipo: "editar", precio: menuAcciones.precio });
                 setMenuAcciones(null);
               }}
             >

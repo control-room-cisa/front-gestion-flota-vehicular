@@ -1,39 +1,39 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import * as XLSX from 'xlsx';
-import { useAuth } from '../../../shared/auth/AuthContext';
-import { useConfirm } from '../../../shared/components/ConfirmProvider';
-import { SearchableSelect } from '../../../shared/components/SearchableSelect';
-import { useToast } from '../../../shared/components/ToastProvider';
-import { ApiError } from '../../../shared/http/api-client';
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import * as XLSX from "xlsx";
+import { useAuth } from "../../../shared/auth/AuthContext";
+import { useConfirm } from "../../../shared/components/ConfirmProvider";
+import { SearchableSelect } from "../../../shared/components/SearchableSelect";
+import { useToast } from "../../../shared/components/ToastProvider";
+import { ApiError } from "../../../shared/http/api-client";
 import {
   canExportMovilizaciones,
   isMovilizacionManager,
-} from '../../../shared/types/roles.types';
-import { empresaService } from '../../empresas/services/empresa.service';
-import type { EmpresaDto } from '../../empresas/types/empresa.types';
-import { usuariosService } from '../../usuarios/services/usuario.service';
-import type { UsuarioListadoDto } from '../../usuarios/types/usuario.types';
-import { unidadService } from '../../unidades/services/unidad.service';
-import { CATEGORIA_CODIGO_VEHICULOS_LIVIANOS } from '../../categorias/types/categoria.types';
-import type { UnidadDto } from '../../unidades/types/unidad.types';
-import { MovilizacionDetalleModal } from '../components/MovilizacionDetalleModal';
-import { MovilizacionForm } from '../components/MovilizacionForm';
-import { movilizacionService } from '../services/movilizacion.service';
+} from "../../../shared/types/roles.types";
+import { empresaService } from "../../empresas/services/empresa.service";
+import type { EmpresaDto } from "../../empresas/types/empresa.types";
+import { usuariosService } from "../../usuarios/services/usuario.service";
+import type { UsuarioListadoDto } from "../../usuarios/types/usuario.types";
+import { unidadService } from "../../unidades/services/unidad.service";
+import { CATEGORIA_CODIGO_VEHICULOS_LIVIANOS } from "../../categorias/types/categoria.types";
+import type { UnidadDto } from "../../unidades/types/unidad.types";
+import { MovilizacionDetalleModal } from "../components/MovilizacionDetalleModal";
+import { MovilizacionForm } from "../components/MovilizacionForm";
+import { movilizacionService } from "../services/movilizacion.service";
 import type {
   CreateMovilizacionDto,
   MovilizacionDto,
   UpdateMovilizacionDto,
-} from '../types/movilizacion.types';
+} from "../types/movilizacion.types";
 import {
   buildGroupedTableRows,
   type MovilizacionGroupBy,
-} from '../utils/movilizacion-table.utils';
+} from "../utils/movilizacion-table.utils";
 
 type Modo =
-  | { tipo: 'oculto' }
-  | { tipo: 'crear' }
-  | { tipo: 'editar'; movilizacion: MovilizacionDto };
+  | { tipo: "oculto" }
+  | { tipo: "crear" }
+  | { tipo: "editar"; movilizacion: MovilizacionDto };
 
 const PAGE_SIZE = 20;
 
@@ -46,8 +46,8 @@ const PAGE_SIZE = 20;
  */
 const UNIDAD_FILTRO_TODOS = {
   id: 0,
-  nombre: 'Todas las unidades',
-  clase: '',
+  nombre: "Todas las unidades",
+  clase: "",
   activo: true,
 } as UnidadDto;
 
@@ -55,9 +55,9 @@ const esTodos = (v: UnidadDto | null): boolean => v?.id === 0;
 
 const USUARIO_FILTRO_TODOS: UsuarioListadoDto = {
   id: 0,
-  codigo_empleado: '',
-  nombre: 'Todos los usuarios',
-  apellido: '',
+  codigo_empleado: "",
+  nombre: "Todos los usuarios",
+  apellido: "",
   empresa: null,
 };
 
@@ -81,8 +81,13 @@ interface RowDecoration {
   gapAfter?: GapInfo;
 }
 
-const WarningIcon = ({ className = 'h-3.5 w-3.5' }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+const WarningIcon = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden
+  >
     <path
       fillRule="evenodd"
       d="M8.485 2.495a1.75 1.75 0 013.03 0l6.28 10.875A1.75 1.75 0 0116.28 16H3.72a1.75 1.75 0 01-1.515-2.63L8.485 2.495zM10 7a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 0110 7zm0 7.25a1 1 0 100-2 1 1 0 000 2z"
@@ -92,36 +97,41 @@ const WarningIcon = ({ className = 'h-3.5 w-3.5' }: { className?: string }) => (
 );
 
 const formatFecha = (iso: string): string =>
-  new Date(iso).toLocaleString('es-GT', {
-    dateStyle: 'short',
-    timeStyle: 'short',
+  new Date(iso).toLocaleString("es-HN", {
+    dateStyle: "short",
+    timeStyle: "short",
   });
 
 /** Fecha y hora en dos líneas (como la celda de usuario). */
 const formatFechaPartes = (iso: string): { fecha: string; hora: string } => {
   const d = new Date(iso);
   return {
-    fecha: d.toLocaleDateString('es-GT', { dateStyle: 'short' }),
-    hora: d.toLocaleTimeString('es-GT', {
-      hour: '2-digit',
-      minute: '2-digit',
+    fecha: d.toLocaleDateString("es-HN", { dateStyle: "short" }),
+    hora: d.toLocaleTimeString("es-HN", {
+      hour: "2-digit",
+      minute: "2-digit",
     }),
   };
 };
 
 /** Columnas visibles solo desde `lg` (1024px) en adelante. Entre md y lg la tabla usa layout compacto. */
-const COL_LG = 'hidden lg:table-cell';
+const COL_LG = "hidden lg:table-cell";
 
 /** Sin `display`: evita que `inline-flex` pise `hidden` en breakpoints responsivos. */
 const iconBtnClass =
-  'items-center justify-center p-2 rounded-lg border transition-colors shrink-0 disabled:opacity-50';
+  "items-center justify-center p-2 rounded-lg border transition-colors shrink-0 disabled:opacity-50";
 
 const menuDotsBtnClass =
-  'inline-flex items-center justify-center p-1 text-slate-500 hover:text-slate-800 rounded transition-colors';
+  "inline-flex items-center justify-center p-1 text-slate-500 hover:text-slate-800 rounded transition-colors";
 
 /** Heroicons v2 mini (20×20, solid) — mismos trazos que el resto de la app. */
-const EyeIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+const EyeIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden
+  >
     <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
     <path
       fillRule="evenodd"
@@ -131,14 +141,24 @@ const EyeIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
   </svg>
 );
 
-const PencilIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+const PencilIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden
+  >
     <path d="m2.695 14.295 1.17-3.505a1 1 0 0 1 .26-.365l8.086-8.086a2.121 2.121 0 1 1 3 3l-8.086 8.086a1 1 0 0 1-.365.26l-3.505 1.17 1.17-1.17ZM12.22 4.22l1.56 1.56-1.06 1.06-1.56-1.56 1.06-1.06Z" />
   </svg>
 );
 
-const TrashIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+const TrashIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden
+  >
     <path
       fillRule="evenodd"
       d="M8.75 2A2.75 2.75 0 0 0 6 4.75v.5H3.75a.75.75 0 0 0 0 1.5h.386l.77 9.256a2.25 2.25 0 0 0 2.238 2.044h6.692a2.25 2.25 0 0 0 2.238-2.044l.77-9.256h.386a.75.75 0 0 0 0-1.5H14v-.5A2.75 2.75 0 0 0 11.25 2h-2.5Zm-1.5 1.5v-.5h5.5v.5H7.25Zm-.886 2.25h7.272l-.729 8.756a.75.75 0 0 1-.746.694H7.61a.75.75 0 0 1-.746-.694l-.729-8.756Z"
@@ -147,26 +167,35 @@ const TrashIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
   </svg>
 );
 
-const EllipsisVerticalIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+const EllipsisVerticalIcon = ({
+  className = "h-4 w-4",
+}: {
+  className?: string;
+}) => (
+  <svg
+    className={className}
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden
+  >
     <path d="M10 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm0 4a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm0 4a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" />
   </svg>
 );
 
 const menuItemClass =
-  'w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50';
+  "w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50";
 
 /** "YYYY/MM/DD HH:mm" en TZ local. Usado en la exportación a Excel. */
 const formatFechaExcel = (iso: string): string => {
   const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
+  const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
 /** "YYYY-MM-DD" del día de hoy en TZ local. */
 const hoyISO = (): string => {
   const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
+  const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
@@ -192,7 +221,7 @@ export const MovilizacionesPage = () => {
   const [usuarios, setUsuarios] = useState<UsuarioListadoDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
-  const [modo, setModo] = useState<Modo>({ tipo: 'oculto' });
+  const [modo, setModo] = useState<Modo>({ tipo: "oculto" });
   const [detalle, setDetalle] = useState<MovilizacionDto | null>(null);
   const [exportando, setExportando] = useState(false);
   /** Menú ⋮ en pantallas &lt; sm (portal fijo para no recortar por overflow de la tabla). */
@@ -210,7 +239,7 @@ export const MovilizacionesPage = () => {
     null,
   );
   const [page, setPage] = useState(1);
-  const [groupBy, setGroupBy] = useState<MovilizacionGroupBy>('none');
+  const [groupBy, setGroupBy] = useState<MovilizacionGroupBy>("none");
   const [soloMisMovilizaciones, setSoloMisMovilizaciones] = useState(false);
 
   // Tooltip flotante para comentarios. Lo renderizamos vía portal en
@@ -260,8 +289,8 @@ export const MovilizacionesPage = () => {
   useEffect(() => {
     if (!menuAcciones) return;
     const onScroll = () => setMenuAcciones(null);
-    window.addEventListener('scroll', onScroll, true);
-    return () => window.removeEventListener('scroll', onScroll, true);
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
   }, [menuAcciones]);
 
   // -------------------------------------------------------------------------
@@ -271,7 +300,9 @@ export const MovilizacionesPage = () => {
     let cancelled = false;
     Promise.all([
       empresaService.list(),
-      unidadService.list({ categoriaCodigo: CATEGORIA_CODIGO_VEHICULOS_LIVIANOS }),
+      unidadService.list({
+        categoriaCodigo: CATEGORIA_CODIGO_VEHICULOS_LIVIANOS,
+      }),
       isManager
         ? usuariosService.list()
         : Promise.resolve<UsuarioListadoDto[]>([]),
@@ -284,7 +315,9 @@ export const MovilizacionesPage = () => {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Error al cargar catálogos');
+        setError(
+          err instanceof Error ? err.message : "Error al cargar catálogos",
+        );
       });
     return () => {
       cancelled = true;
@@ -325,7 +358,7 @@ export const MovilizacionesPage = () => {
     setError(undefined);
     try {
       const base = listQueryBase();
-      if (isManager && groupBy !== 'none') {
+      if (isManager && groupBy !== "none") {
         const FETCH_SIZE = 100;
         const todos: MovilizacionDto[] = [];
         let pagina = 1;
@@ -354,7 +387,7 @@ export const MovilizacionesPage = () => {
       }
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Error al cargar movilizaciones',
+        err instanceof Error ? err.message : "Error al cargar movilizaciones",
       );
     } finally {
       setLoading(false);
@@ -369,11 +402,18 @@ export const MovilizacionesPage = () => {
   // en una página fuera de rango.
   useEffect(() => {
     setPage(1);
-  }, [desde, hasta, unidadFiltro, usuarioFiltro, groupBy, soloMisMovilizaciones]);
+  }, [
+    desde,
+    hasta,
+    unidadFiltro,
+    usuarioFiltro,
+    groupBy,
+    soloMisMovilizaciones,
+  ]);
 
   useEffect(() => {
-    if (!isManager && groupBy !== 'none') {
-      setGroupBy('none');
+    if (!isManager && groupBy !== "none") {
+      setGroupBy("none");
     }
   }, [isManager, groupBy]);
 
@@ -386,15 +426,15 @@ export const MovilizacionesPage = () => {
     if (exportando) return;
     if (!puedeExportar) {
       toast.error(
-        'No tienes permisos para descargar el reporte de movilizaciones.',
-        'Acceso denegado',
+        "No tienes permisos para descargar el reporte de movilizaciones.",
+        "Acceso denegado",
       );
       return;
     }
     if (desde && hasta && desde > hasta) {
       toast.warning(
         '"Desde" no puede ser posterior a "Hasta".',
-        'Filtros inválidos',
+        "Filtros inválidos",
       );
       return;
     }
@@ -423,41 +463,41 @@ export const MovilizacionesPage = () => {
 
       if (todos.length === 0) {
         toast.info(
-          'No hay movilizaciones para exportar con los filtros aplicados.',
-          'Sin resultados',
+          "No hay movilizaciones para exportar con los filtros aplicados.",
+          "Sin resultados",
         );
         return;
       }
 
       const filas = todos.map((m) => ({
-        'Fecha y hora': formatFechaExcel(m.fecha),
+        "Fecha y hora": formatFechaExcel(m.fecha),
         Vehículo: m.unidad.nombre,
         Usuario: `${m.usuario.nombre} ${m.usuario.apellido}`.trim(),
         Inicio: m.kilometrajeInicial,
         Fin: m.kilometrajeFinal,
         Recorrido: m.kilometrajeFinal - m.kilometrajeInicial,
-        'Es viaje': m.esViaje ? 'Sí' : 'No',
-        Empresas: m.empresas.map((e) => e.nombre).join(', '),
+        "Es viaje": m.esViaje ? "Sí" : "No",
+        Empresas: m.empresas.map((e) => e.nombre).join(", "),
         Comentario: m.comentario,
       }));
 
       const ws = XLSX.utils.json_to_sheet(filas, {
         header: [
-          'Fecha y hora',
-          'Vehículo',
-          'Usuario',
-          'Inicio',
-          'Fin',
-          'Recorrido',
-          'Es viaje',
-          'Empresas',
-          'Comentario',
+          "Fecha y hora",
+          "Vehículo",
+          "Usuario",
+          "Inicio",
+          "Fin",
+          "Recorrido",
+          "Es viaje",
+          "Empresas",
+          "Comentario",
         ],
       });
 
       // Anchos de columna aproximados para que el archivo se vea legible
       // al abrirlo sin tener que ajustar manualmente cada columna.
-      ws['!cols'] = [
+      ws["!cols"] = [
         { wch: 18 }, // Fecha y hora
         { wch: 24 }, // Vehículo
         { wch: 28 }, // Usuario
@@ -470,7 +510,7 @@ export const MovilizacionesPage = () => {
       ];
 
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Movilizaciones');
+      XLSX.utils.book_append_sheet(wb, ws, "Movilizaciones");
 
       const sufijo =
         desde && hasta
@@ -480,13 +520,13 @@ export const MovilizacionesPage = () => {
           : hoyISO();
       XLSX.writeFile(wb, `movilizaciones_${sufijo}.xlsx`);
       toast.success(
-        `Se exportaron ${todos.length} movilizacion${todos.length === 1 ? '' : 'es'}.`,
-        'Excel generado',
+        `Se exportaron ${todos.length} movilizacion${todos.length === 1 ? "" : "es"}.`,
+        "Excel generado",
       );
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : 'Error al exportar movilizaciones';
-      toast.error(msg, 'No se pudo generar el Excel');
+        err instanceof Error ? err.message : "Error al exportar movilizaciones";
+      toast.error(msg, "No se pudo generar el Excel");
     } finally {
       setExportando(false);
     }
@@ -495,33 +535,33 @@ export const MovilizacionesPage = () => {
   const handleSubmit = async (
     data: CreateMovilizacionDto | UpdateMovilizacionDto,
   ) => {
-    if (modo.tipo === 'crear') {
+    if (modo.tipo === "crear") {
       await movilizacionService.create(data as CreateMovilizacionDto);
-    } else if (modo.tipo === 'editar') {
+    } else if (modo.tipo === "editar") {
       await movilizacionService.update(modo.movilizacion.id, data);
     }
-    setModo({ tipo: 'oculto' });
+    setModo({ tipo: "oculto" });
     await cargar();
   };
 
   const eliminar = async (m: MovilizacionDto) => {
     const ok = await confirm({
-      title: 'Eliminar movilización',
+      title: "Eliminar movilización",
       message: `¿Eliminar la movilización del ${formatFecha(m.fecha)}? Esta acción no se puede deshacer.`,
-      confirmText: 'Eliminar',
-      variant: 'danger',
+      confirmText: "Eliminar",
+      variant: "danger",
     });
     if (!ok) return;
     try {
       await movilizacionService.remove(m.id);
-      toast.success('Movilización eliminada.', 'Listo');
+      toast.success("Movilización eliminada.", "Listo");
       await cargar();
     } catch (err) {
       const msg =
         err instanceof ApiError
           ? err.message
-          : 'No se pudo eliminar la movilización';
-      toast.error(msg, 'Error al eliminar');
+          : "No se pudo eliminar la movilización";
+      toast.error(msg, "Error al eliminar");
     }
   };
 
@@ -544,14 +584,14 @@ export const MovilizacionesPage = () => {
     const sorted = [...usuarios].sort((a, b) =>
       `${a.nombre} ${a.apellido}`.localeCompare(
         `${b.nombre} ${b.apellido}`,
-        'es',
+        "es",
       ),
     );
     return [USUARIO_FILTRO_TODOS, ...sorted];
   }, [usuarios]);
 
   const fechasInvalidas = desde && hasta && desde > hasta;
-  const estaAgrupado = isManager && groupBy !== 'none';
+  const estaAgrupado = isManager && groupBy !== "none";
 
   const tableRows = useMemo(
     () => buildGroupedTableRows(movilizaciones, groupBy),
@@ -559,7 +599,7 @@ export const MovilizacionesPage = () => {
   );
 
   const filasVisibles = useMemo(
-    () => tableRows.filter((r) => r.kind === 'mov').length,
+    () => tableRows.filter((r) => r.kind === "mov").length,
     [tableRows],
   );
 
@@ -567,7 +607,7 @@ export const MovilizacionesPage = () => {
   // Decoraciones por fila: traslapes + gaps (solo sin agrupar o por vehículo).
   // ---------------------------------------------------------------------------
   const decorations = useMemo<Map<number, RowDecoration>>(() => {
-    if (groupBy === 'usuario' || groupBy === 'empresa') {
+    if (groupBy === "usuario" || groupBy === "empresa") {
       return new Map();
     }
     const dec = new Map<number, RowDecoration>();
@@ -647,12 +687,12 @@ export const MovilizacionesPage = () => {
                     clipRule="evenodd"
                   />
                 </svg>
-                {exportando ? 'Generando…' : 'Descargar Excel'}
+                {exportando ? "Generando…" : "Descargar Excel"}
               </button>
             )}
             <button
               type="button"
-              onClick={() => setModo({ tipo: 'crear' })}
+              onClick={() => setModo({ tipo: "crear" })}
               className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500"
             >
               + Nueva movilización
@@ -663,12 +703,14 @@ export const MovilizacionesPage = () => {
         {/* Barra de filtros */}
         <div
           className={
-            'bg-white border border-slate-200 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 items-end ' +
-            (isManager ? 'lg:grid-cols-4' : 'lg:grid-cols-3')
+            "bg-white border border-slate-200 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 items-end " +
+            (isManager ? "lg:grid-cols-4" : "lg:grid-cols-3")
           }
         >
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-600">Desde</label>
+            <label className="text-xs font-semibold text-slate-600">
+              Desde
+            </label>
             <input
               type="date"
               value={desde}
@@ -678,7 +720,9 @@ export const MovilizacionesPage = () => {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-600">Hasta</label>
+            <label className="text-xs font-semibold text-slate-600">
+              Hasta
+            </label>
             <input
               type="date"
               value={hasta}
@@ -709,7 +753,7 @@ export const MovilizacionesPage = () => {
                 }
                 getSearchText={(u) =>
                   esTodosUsuario(u)
-                    ? 'todos los usuarios'
+                    ? "todos los usuarios"
                     : `${u.nombre} ${u.apellido} ${u.codigo_empleado}`
                 }
                 renderOption={(u, { active, selected }) => {
@@ -717,10 +761,10 @@ export const MovilizacionesPage = () => {
                     return (
                       <span
                         className={
-                          'flex items-center gap-2 font-semibold ' +
+                          "flex items-center gap-2 font-semibold " +
                           (active || selected
-                            ? 'text-indigo-700'
-                            : 'text-slate-700')
+                            ? "text-indigo-700"
+                            : "text-slate-700")
                         }
                       >
                         <svg
@@ -762,26 +806,24 @@ export const MovilizacionesPage = () => {
             <SearchableSelect<UnidadDto>
               options={unidadesFiltroOptions}
               value={unidadFiltro ?? UNIDAD_FILTRO_TODOS}
-              onChange={(v) =>
-                setunidadFiltro(v && !esTodos(v) ? v : null)
-              }
+              onChange={(v) => setunidadFiltro(v && !esTodos(v) ? v : null)}
               getKey={(v) => v.id}
               getLabel={(v) => v.nombre}
               getSubLabel={(v) =>
                 esTodos(v) ? undefined : v.clase.toUpperCase()
               }
               getSearchText={(v) =>
-                esTodos(v) ? 'todos los unidades' : `${v.nombre} ${v.clase}`
+                esTodos(v) ? "todos los unidades" : `${v.nombre} ${v.clase}`
               }
               renderOption={(v, { active, selected }) => {
                 if (esTodos(v)) {
                   return (
                     <span
                       className={
-                        'flex items-center gap-2 font-semibold ' +
+                        "flex items-center gap-2 font-semibold " +
                         (active || selected
-                          ? 'text-indigo-700'
-                          : 'text-slate-700')
+                          ? "text-indigo-700"
+                          : "text-slate-700")
                       }
                     >
                       <svg
@@ -852,8 +894,8 @@ export const MovilizacionesPage = () => {
           {fechasInvalidas && (
             <p
               className={
-                'sm:col-span-2 text-xs text-amber-700 ' +
-                (isManager ? 'lg:col-span-4' : 'lg:col-span-3')
+                "sm:col-span-2 text-xs text-amber-700 " +
+                (isManager ? "lg:col-span-4" : "lg:col-span-3")
               }
             >
               "Desde" no puede ser posterior a "Hasta".
@@ -869,306 +911,353 @@ export const MovilizacionesPage = () => {
 
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto lg:overflow-visible overscroll-x-contain [-webkit-overflow-scrolling:touch]">
-          <table className="w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Fecha</th>
-                <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}>Usuario</th>
-                <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Vehículo</th>
-                <th
-                  className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
-                  title="Kilometraje inicial"
-                >
-                  Km ini
-                </th>
-                <th
-                  className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
-                  title="Kilometraje final"
-                >
-                  Km fin
-                </th>
-                <th
-                  className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
-                  title="Kilómetros recorridos"
-                >
-                  Rec.
-                </th>
-                <th
-                  className={`px-2 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap ${COL_LG}`}
-                  title="Indica si es un viaje"
-                >
-                  Viaje
-                </th>
-                <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}>Empresas</th>
-                <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}>Comentario</th>
-                <th
-                  scope="col"
-                  aria-label="Acciones"
-                  className="w-9 max-w-9 px-0.5 py-3 text-right sm:w-auto sm:max-w-none sm:px-2 lg:px-4"
-                >
-                  <span className="hidden sm:inline text-xs font-semibold uppercase tracking-wider text-slate-600">
-                    Acciones
-                  </span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
+            <table className="w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50">
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate-500">
-                    Cargando...
-                  </td>
+                  <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    Fecha
+                  </th>
+                  <th
+                    className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}
+                  >
+                    Usuario
+                  </th>
+                  <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    Vehículo
+                  </th>
+                  <th
+                    className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
+                    title="Kilometraje inicial"
+                  >
+                    Km ini
+                  </th>
+                  <th
+                    className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
+                    title="Kilometraje final"
+                  >
+                    Km fin
+                  </th>
+                  <th
+                    className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
+                    title="Kilómetros recorridos"
+                  >
+                    Rec.
+                  </th>
+                  <th
+                    className={`px-2 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap ${COL_LG}`}
+                    title="Indica si es un viaje"
+                  >
+                    Viaje
+                  </th>
+                  <th
+                    className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}
+                  >
+                    Empresas
+                  </th>
+                  <th
+                    className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}
+                  >
+                    Comentario
+                  </th>
+                  <th
+                    scope="col"
+                    aria-label="Acciones"
+                    className="w-9 max-w-9 px-0.5 py-3 text-right sm:w-auto sm:max-w-none sm:px-2 lg:px-4"
+                  >
+                    <span className="hidden sm:inline text-xs font-semibold uppercase tracking-wider text-slate-600">
+                      Acciones
+                    </span>
+                  </th>
                 </tr>
-              ) : movilizaciones.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate-500">
-                    Sin registros para los filtros aplicados.
-                  </td>
-                </tr>
-              ) : (
-                tableRows.map((row) => {
-                  if (row.kind === 'group') {
-                    return (
-                      <tr
-                        key={`group-${row.id}`}
-                        className="bg-indigo-50/80 border-y border-indigo-100"
-                      >
-                        <td
-                          colSpan={10}
-                          className="px-4 py-2.5 text-sm font-semibold text-indigo-900"
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={10}
+                      className="px-4 py-8 text-center text-slate-500"
+                    >
+                      Cargando...
+                    </td>
+                  </tr>
+                ) : movilizaciones.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={10}
+                      className="px-4 py-8 text-center text-slate-500"
+                    >
+                      Sin registros para los filtros aplicados.
+                    </td>
+                  </tr>
+                ) : (
+                  tableRows.map((row) => {
+                    if (row.kind === "group") {
+                      return (
+                        <tr
+                          key={`group-${row.id}`}
+                          className="bg-indigo-50/80 border-y border-indigo-100"
                         >
-                          {row.label}
-                          <span className="ml-2 font-normal text-indigo-600">
-                            ({row.count}{' '}
-                            {row.count === 1 ? 'registro' : 'registros'})
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  }
-
-                  const m = row.mov;
-                  const recorrido = m.kilometrajeFinal - m.kilometrajeInicial;
-                  const deco = decorations.get(m.id);
-                  const overlapInicial = deco?.overlapInicial ?? false;
-                  const overlapFinal = deco?.overlapFinal ?? false;
-                  const gap = deco?.gapAfter;
-                  const overlapTooltip =
-                    'Este kilometraje se traslapa con otra movilización del mismo vehículo';
-
-                  const kmCellClass = (alert: boolean) =>
-                    'px-2 py-3 text-sm text-right font-mono whitespace-nowrap ' +
-                    (alert ? 'text-red-700' : 'text-slate-800');
-
-                  const { fecha: fechaTxt, hora: horaTxt } = formatFechaPartes(m.fecha);
-
-                  return (
-                    <Fragment key={row.rowKey}>
-                      <tr>
-                        <td className="px-3 lg:px-4 py-3 text-sm text-slate-800">
-                          <div className="font-semibold whitespace-nowrap">
-                            {fechaTxt}
-                          </div>
-                          <div className="text-xs text-slate-500 whitespace-nowrap">
-                            {horaTxt}
-                          </div>
-                        </td>
-                        <td className={`px-4 py-3 text-sm text-slate-800 ${COL_LG}`}>
-                          <div className="font-semibold">
-                            {m.usuario.nombre} {m.usuario.apellido}
-                          </div>
-                          <div className="text-xs text-slate-500 font-mono">
-                            {m.usuario.codigo_empleado}
-                          </div>
-                        </td>
-                        <td className="px-3 lg:px-4 py-3 text-sm text-slate-800">
-                          <div className="font-semibold">{m.unidad.nombre}</div>
-                          <div className="text-xs font-mono uppercase text-slate-500">
-                            {m.unidad.clase}
-                          </div>
-                        </td>
-                        <td className={kmCellClass(overlapInicial)}>
-                          <span className="inline-flex items-center justify-end gap-1.5">
-                            {overlapInicial && (
-                              <span
-                                className="text-red-600"
-                                title={overlapTooltip}
-                                aria-label={overlapTooltip}
-                              >
-                                <WarningIcon />
-                              </span>
-                            )}
-                            <span>{m.kilometrajeInicial.toLocaleString('es-GT')}</span>
-                          </span>
-                        </td>
-                        <td className={kmCellClass(overlapFinal)}>
-                          <span className="inline-flex items-center justify-end gap-1.5">
-                            {overlapFinal && (
-                              <span
-                                className="text-red-600"
-                                title={overlapTooltip}
-                                aria-label={overlapTooltip}
-                              >
-                                <WarningIcon />
-                              </span>
-                            )}
-                            <span>{m.kilometrajeFinal.toLocaleString('es-GT')}</span>
-                          </span>
-                        </td>
-                        <td className="px-2 py-3 text-sm font-mono text-right text-indigo-700 font-semibold whitespace-nowrap">
-                          {recorrido.toLocaleString('es-GT')}
-                        </td>
-                        <td className={`px-2 py-3 text-sm text-center whitespace-nowrap ${COL_LG}`}>
-                          {m.esViaje ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-700">
-                              Sí
-                            </span>
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
-                        </td>
-                        <td className={`px-4 py-3 text-sm text-slate-800 ${COL_LG}`}>
-                          <div className="flex flex-wrap gap-1">
-                            {m.empresas.map((e) => (
-                              <span
-                                key={e.id}
-                                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700"
-                                title={e.codigo}
-                              >
-                                {e.nombre}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td
-                          className={`px-4 py-3 text-sm text-slate-700 max-w-[16rem] cursor-help ${COL_LG}`}
-                          onMouseEnter={(e) => showCommentTooltip(e, m.comentario)}
-                          onMouseLeave={hideCommentTooltip}
-                        >
-                          <span className="block truncate">{m.comentario}</span>
-                        </td>
-                        <td className="w-9 max-w-9 px-0.5 py-3 text-right whitespace-nowrap sm:w-auto sm:max-w-none sm:px-2 lg:px-4">
-                          <div className="inline-flex items-center justify-end">
-                            {/* &lt; sm: solo ⋮ */}
-                            <div className="flex sm:hidden">
-                              <button
-                                type="button"
-                                title="Más acciones"
-                                aria-label="Más acciones"
-                                aria-haspopup="menu"
-                                aria-expanded={menuAcciones?.mov.id === m.id}
-                                onClick={(e) => toggleMenuAcciones(e, m)}
-                                className={menuDotsBtnClass}
-                              >
-                                <EllipsisVerticalIcon />
-                              </button>
-                            </div>
-                            {/* sm–lg: iconos (sin ⋮) */}
-                            <div className="hidden sm:flex lg:hidden items-center gap-1">
-                              <button
-                                type="button"
-                                title="Ver detalle"
-                                aria-label="Ver detalle"
-                                onClick={() => setDetalle(m)}
-                                className={`${iconBtnClass} inline-flex border-slate-200 text-slate-600 hover:bg-slate-50`}
-                              >
-                                <EyeIcon />
-                              </button>
-                              {m.canManage && (
-                                <>
-                                  <button
-                                    type="button"
-                                    title="Editar"
-                                    aria-label="Editar"
-                                    onClick={() =>
-                                      setModo({ tipo: 'editar', movilizacion: m })
-                                    }
-                                    className={`${iconBtnClass} inline-flex border-slate-200 text-slate-600 hover:bg-slate-50`}
-                                  >
-                                    <PencilIcon />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    title="Eliminar"
-                                    aria-label="Eliminar"
-                                    onClick={() => eliminar(m)}
-                                    className={`${iconBtnClass} inline-flex border-red-200 text-red-600 hover:bg-red-50`}
-                                  >
-                                    <TrashIcon />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                            {/* lg+: botones texto (sin ⋮ ni iconos) */}
-                            <div className="hidden lg:flex items-center gap-2">
-                              {m.canManage ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setModo({ tipo: 'editar', movilizacion: m })
-                                    }
-                                    className="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
-                                  >
-                                    Editar
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => eliminar(m)}
-                                    className="px-3 py-1 text-xs font-semibold rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
-                                  >
-                                    Eliminar
-                                  </button>
-                                </>
-                              ) : (
-                                <span className="text-xs text-slate-400">—</span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                      {gap && (
-                        <tr className="bg-red-50">
                           <td
                             colSpan={10}
-                            className="px-4 py-2.5 text-sm text-red-700 border-l-4 border-l-red-400"
+                            className="px-4 py-2.5 text-sm font-semibold text-indigo-900"
                           >
-                            <div className="flex items-center justify-center gap-2 text-center">
-                              <WarningIcon className="h-4 w-4 shrink-0" />
-                              <span>
-                                <strong>Sin registros</strong> — no se han
-                                registrado kilometrajes entre{' '}
-                                <span className="font-mono font-semibold">
-                                  {gap.fromKm.toLocaleString('es-GT')}
-                                </span>{' '}
-                                y{' '}
-                                <span className="font-mono font-semibold">
-                                  {gap.toKm.toLocaleString('es-GT')}
-                                </span>{' '}
-                                para <strong>{gap.unidad.nombre}</strong>{' '}
-                                <span className="font-mono uppercase opacity-70">
-                                  ({gap.unidad.clase})
+                            {row.label}
+                            <span className="ml-2 font-normal text-indigo-600">
+                              ({row.count}{" "}
+                              {row.count === 1 ? "registro" : "registros"})
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    const m = row.mov;
+                    const recorrido = m.kilometrajeFinal - m.kilometrajeInicial;
+                    const deco = decorations.get(m.id);
+                    const overlapInicial = deco?.overlapInicial ?? false;
+                    const overlapFinal = deco?.overlapFinal ?? false;
+                    const gap = deco?.gapAfter;
+                    const overlapTooltip =
+                      "Este kilometraje se traslapa con otra movilización del mismo vehículo";
+
+                    const kmCellClass = (alert: boolean) =>
+                      "px-2 py-3 text-sm text-right font-mono whitespace-nowrap " +
+                      (alert ? "text-red-700" : "text-slate-800");
+
+                    const { fecha: fechaTxt, hora: horaTxt } =
+                      formatFechaPartes(m.fecha);
+
+                    return (
+                      <Fragment key={row.rowKey}>
+                        <tr>
+                          <td className="px-3 lg:px-4 py-3 text-sm text-slate-800">
+                            <div className="font-semibold whitespace-nowrap">
+                              {fechaTxt}
+                            </div>
+                            <div className="text-xs text-slate-500 whitespace-nowrap">
+                              {horaTxt}
+                            </div>
+                          </td>
+                          <td
+                            className={`px-4 py-3 text-sm text-slate-800 ${COL_LG}`}
+                          >
+                            <div className="font-semibold">
+                              {m.usuario.nombre} {m.usuario.apellido}
+                            </div>
+                            <div className="text-xs text-slate-500 font-mono">
+                              {m.usuario.codigo_empleado}
+                            </div>
+                          </td>
+                          <td className="px-3 lg:px-4 py-3 text-sm text-slate-800">
+                            <div className="font-semibold">
+                              {m.unidad.nombre}
+                            </div>
+                            <div className="text-xs font-mono uppercase text-slate-500">
+                              {m.unidad.clase}
+                            </div>
+                          </td>
+                          <td className={kmCellClass(overlapInicial)}>
+                            <span className="inline-flex items-center justify-end gap-1.5">
+                              {overlapInicial && (
+                                <span
+                                  className="text-red-600"
+                                  title={overlapTooltip}
+                                  aria-label={overlapTooltip}
+                                >
+                                  <WarningIcon />
                                 </span>
+                              )}
+                              <span>
+                                {m.kilometrajeInicial.toLocaleString("es-HN")}
                               </span>
+                            </span>
+                          </td>
+                          <td className={kmCellClass(overlapFinal)}>
+                            <span className="inline-flex items-center justify-end gap-1.5">
+                              {overlapFinal && (
+                                <span
+                                  className="text-red-600"
+                                  title={overlapTooltip}
+                                  aria-label={overlapTooltip}
+                                >
+                                  <WarningIcon />
+                                </span>
+                              )}
+                              <span>
+                                {m.kilometrajeFinal.toLocaleString("es-HN")}
+                              </span>
+                            </span>
+                          </td>
+                          <td className="px-2 py-3 text-sm font-mono text-right text-indigo-700 font-semibold whitespace-nowrap">
+                            {recorrido.toLocaleString("es-HN")}
+                          </td>
+                          <td
+                            className={`px-2 py-3 text-sm text-center whitespace-nowrap ${COL_LG}`}
+                          >
+                            {m.esViaje ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-700">
+                                Sí
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td
+                            className={`px-4 py-3 text-sm text-slate-800 ${COL_LG}`}
+                          >
+                            <div className="flex flex-wrap gap-1">
+                              {m.empresas.map((e) => (
+                                <span
+                                  key={e.id}
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700"
+                                  title={e.codigo}
+                                >
+                                  {e.nombre}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td
+                            className={`px-4 py-3 text-sm text-slate-700 max-w-[16rem] cursor-help ${COL_LG}`}
+                            onMouseEnter={(e) =>
+                              showCommentTooltip(e, m.comentario)
+                            }
+                            onMouseLeave={hideCommentTooltip}
+                          >
+                            <span className="block truncate">
+                              {m.comentario}
+                            </span>
+                          </td>
+                          <td className="w-9 max-w-9 px-0.5 py-3 text-right whitespace-nowrap sm:w-auto sm:max-w-none sm:px-2 lg:px-4">
+                            <div className="inline-flex items-center justify-end">
+                              {/* &lt; sm: solo ⋮ */}
+                              <div className="flex sm:hidden">
+                                <button
+                                  type="button"
+                                  title="Más acciones"
+                                  aria-label="Más acciones"
+                                  aria-haspopup="menu"
+                                  aria-expanded={menuAcciones?.mov.id === m.id}
+                                  onClick={(e) => toggleMenuAcciones(e, m)}
+                                  className={menuDotsBtnClass}
+                                >
+                                  <EllipsisVerticalIcon />
+                                </button>
+                              </div>
+                              {/* sm–lg: iconos (sin ⋮) */}
+                              <div className="hidden sm:flex lg:hidden items-center gap-1">
+                                <button
+                                  type="button"
+                                  title="Ver detalle"
+                                  aria-label="Ver detalle"
+                                  onClick={() => setDetalle(m)}
+                                  className={`${iconBtnClass} inline-flex border-slate-200 text-slate-600 hover:bg-slate-50`}
+                                >
+                                  <EyeIcon />
+                                </button>
+                                {m.canManage && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      title="Editar"
+                                      aria-label="Editar"
+                                      onClick={() =>
+                                        setModo({
+                                          tipo: "editar",
+                                          movilizacion: m,
+                                        })
+                                      }
+                                      className={`${iconBtnClass} inline-flex border-slate-200 text-slate-600 hover:bg-slate-50`}
+                                    >
+                                      <PencilIcon />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      title="Eliminar"
+                                      aria-label="Eliminar"
+                                      onClick={() => eliminar(m)}
+                                      className={`${iconBtnClass} inline-flex border-red-200 text-red-600 hover:bg-red-50`}
+                                    >
+                                      <TrashIcon />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                              {/* lg+: botones texto (sin ⋮ ni iconos) */}
+                              <div className="hidden lg:flex items-center gap-2">
+                                {m.canManage ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setModo({
+                                          tipo: "editar",
+                                          movilizacion: m,
+                                        })
+                                      }
+                                      className="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
+                                    >
+                                      Editar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => eliminar(m)}
+                                      className="px-3 py-1 text-xs font-semibold rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                                    >
+                                      Eliminar
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="text-xs text-slate-400">
+                                    —
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
                         </tr>
-                      )}
-                    </Fragment>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        {gap && (
+                          <tr className="bg-red-50">
+                            <td
+                              colSpan={10}
+                              className="px-4 py-2.5 text-sm text-red-700 border-l-4 border-l-red-400"
+                            >
+                              <div className="flex items-center justify-center gap-2 text-center">
+                                <WarningIcon className="h-4 w-4 shrink-0" />
+                                <span>
+                                  <strong>Sin registros</strong> — no se han
+                                  registrado kilometrajes entre{" "}
+                                  <span className="font-mono font-semibold">
+                                    {gap.fromKm.toLocaleString("es-HN")}
+                                  </span>{" "}
+                                  y{" "}
+                                  <span className="font-mono font-semibold">
+                                    {gap.toKm.toLocaleString("es-HN")}
+                                  </span>{" "}
+                                  para <strong>{gap.unidad.nombre}</strong>{" "}
+                                  <span className="font-mono uppercase opacity-70">
+                                    ({gap.unidad.clase})
+                                  </span>
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
 
           {/* Footer paginador / resumen agrupado */}
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 bg-slate-50/50 text-sm text-slate-600">
             <span>
               {total === 0
-                ? 'Sin resultados'
+                ? "Sin resultados"
                 : estaAgrupado
-                  ? `${total} ${total === 1 ? 'movilización' : 'movilizaciones'} · ${filasVisibles} ${filasVisibles === 1 ? 'fila' : 'filas'} en vista`
+                  ? `${total} ${total === 1 ? "movilización" : "movilizaciones"} · ${filasVisibles} ${filasVisibles === 1 ? "fila" : "filas"} en vista`
                   : `Mostrando ${desdeRegistro}–${hastaRegistro} de ${total}`}
             </span>
             {!estaAgrupado && (
@@ -1182,7 +1271,8 @@ export const MovilizacionesPage = () => {
                   ← Anterior
                 </button>
                 <span className="text-xs text-slate-500">
-                  Página <strong>{page}</strong> de <strong>{totalPages}</strong>
+                  Página <strong>{page}</strong> de{" "}
+                  <strong>{totalPages}</strong>
                 </span>
                 <button
                   type="button"
@@ -1199,12 +1289,12 @@ export const MovilizacionesPage = () => {
       </main>
 
       <MovilizacionForm
-        open={modo.tipo !== 'oculto'}
-        initial={modo.tipo === 'editar' ? modo.movilizacion : null}
+        open={modo.tipo !== "oculto"}
+        initial={modo.tipo === "editar" ? modo.movilizacion : null}
         empresas={empresas}
         unidades={unidades}
         usuarios={usuarios}
-        onClose={() => setModo({ tipo: 'oculto' })}
+        onClose={() => setModo({ tipo: "oculto" })}
         onSubmit={handleSubmit}
       />
 
@@ -1214,7 +1304,7 @@ export const MovilizacionesPage = () => {
         onClose={() => setDetalle(null)}
         onEdit={(m) => {
           setDetalle(null);
-          setModo({ tipo: 'editar', movilizacion: m });
+          setModo({ tipo: "editar", movilizacion: m });
         }}
         onDelete={async (m) => {
           setDetalle(null);
@@ -1227,7 +1317,7 @@ export const MovilizacionesPage = () => {
           <div
             role="tooltip"
             style={{
-              position: 'fixed',
+              position: "fixed",
               top: commentTooltip.top,
               left: commentTooltip.left,
               maxWidth: 360,
@@ -1253,7 +1343,7 @@ export const MovilizacionesPage = () => {
               role="menu"
               aria-label="Acciones de movilización"
               style={{
-                position: 'fixed',
+                position: "fixed",
                 top: menuAcciones.top,
                 right: menuAcciones.right,
               }}
@@ -1278,7 +1368,10 @@ export const MovilizacionesPage = () => {
                     role="menuitem"
                     className={`${menuItemClass} text-slate-700`}
                     onClick={() => {
-                      setModo({ tipo: 'editar', movilizacion: menuAcciones.mov });
+                      setModo({
+                        tipo: "editar",
+                        movilizacion: menuAcciones.mov,
+                      });
                       cerrarMenuAcciones();
                     }}
                   >

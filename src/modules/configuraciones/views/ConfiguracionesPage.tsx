@@ -72,13 +72,6 @@ export const ConfiguracionesPage = () => {
 
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-slate-800">Configuraciones</h2>
-        <p className="text-sm text-slate-500 mt-1">
-          Variables del sistema consultables desde cualquier módulo.
-        </p>
-      </div>
-
       {cargando ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500">
           Cargando…

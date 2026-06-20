@@ -1,59 +1,69 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useConfirm } from '../../../shared/components/ConfirmProvider';
-import { SearchableSelect } from '../../../shared/components/SearchableSelect';
-import { ApiError } from '../../../shared/http/api-client';
-import { unidadService } from '../../unidades/services/unidad.service';
-import type { UnidadDto } from '../../unidades/types/unidad.types';
-import { DispensadoForm } from '../components/DispensadoForm';
-import { dispensadoService } from '../services/dispensado.service';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { useConfirm } from "../../../shared/components/ConfirmProvider";
+import { SearchableSelect } from "../../../shared/components/SearchableSelect";
+import { ApiError } from "../../../shared/http/api-client";
+import { unidadService } from "../../unidades/services/unidad.service";
+import type { UnidadDto } from "../../unidades/types/unidad.types";
+import { DispensadoForm } from "../components/DispensadoForm";
+import { dispensadoService } from "../services/dispensado.service";
 import type {
   CreateDispensadoDto,
   DispensadoDto,
   UpdateDispensadoDto,
-} from '../types/dispensado.types';
+} from "../types/dispensado.types";
 
 type Modo =
-  | { tipo: 'oculto' }
-  | { tipo: 'crear' }
-  | { tipo: 'editar'; dispensado: DispensadoDto };
+  | { tipo: "oculto" }
+  | { tipo: "crear" }
+  | { tipo: "editar"; dispensado: DispensadoDto };
 
 const PAGE_SIZE = 20;
 
 const formatFecha = (iso: string): string =>
-  new Date(iso).toLocaleString('es-GT', {
-    dateStyle: 'short',
-    timeStyle: 'short',
+  new Date(iso).toLocaleString("es-HN", {
+    dateStyle: "short",
+    timeStyle: "short",
   });
 
 const formatFechaPartes = (iso: string): { fecha: string; hora: string } => {
   const d = new Date(iso);
   return {
-    fecha: d.toLocaleDateString('es-GT', { dateStyle: 'short' }),
-    hora: d.toLocaleTimeString('es-GT', {
-      hour: '2-digit',
-      minute: '2-digit',
+    fecha: d.toLocaleDateString("es-HN", { dateStyle: "short" }),
+    hora: d.toLocaleTimeString("es-HN", {
+      hour: "2-digit",
+      minute: "2-digit",
     }),
   };
 };
 
 /** Columnas visibles solo desde `lg` (1024px). */
-const COL_LG = 'hidden lg:table-cell';
+const COL_LG = "hidden lg:table-cell";
 
 const iconBtnClass =
-  'items-center justify-center p-2 rounded-lg border transition-colors shrink-0 disabled:opacity-50';
+  "items-center justify-center p-2 rounded-lg border transition-colors shrink-0 disabled:opacity-50";
 
 const menuDotsBtnClass =
-  'inline-flex items-center justify-center p-1 text-slate-500 hover:text-slate-800 rounded transition-colors';
+  "inline-flex items-center justify-center p-1 text-slate-500 hover:text-slate-800 rounded transition-colors";
 
-const PencilIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+const PencilIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden
+  >
     <path d="m2.695 14.295 1.17-3.505a1 1 0 0 1 .26-.365l8.086-8.086a2.121 2.121 0 1 1 3 3l-8.086 8.086a1 1 0 0 1-.365.26l-3.505 1.17 1.17-1.17ZM12.22 4.22l1.56 1.56-1.06 1.06-1.56-1.56 1.06-1.06Z" />
   </svg>
 );
 
-const TrashIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+const TrashIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden
+  >
     <path
       fillRule="evenodd"
       d="M8.75 2A2.75 2.75 0 0 0 6 4.75v.5H3.75a.75.75 0 0 0 0 1.5h.386l.77 9.256a2.25 2.25 0 0 0 2.238 2.044h6.692a2.25 2.25 0 0 0 2.238-2.044l.77-9.256h.386a.75.75 0 0 0 0-1.5H14v-.5A2.75 2.75 0 0 0 11.25 2h-2.5Zm-1.5 1.5v-.5h5.5v.5H7.25Zm-.886 2.25h7.272l-.729 8.756a.75.75 0 0 1-.746.694H7.61a.75.75 0 0 1-.746-.694l-.729-8.756Z"
@@ -62,17 +72,31 @@ const TrashIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
   </svg>
 );
 
-const EllipsisVerticalIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+const EllipsisVerticalIcon = ({
+  className = "h-4 w-4",
+}: {
+  className?: string;
+}) => (
+  <svg
+    className={className}
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden
+  >
     <path d="M10 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm0 4a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm0 4a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" />
   </svg>
 );
 
 const menuItemClass =
-  'w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50';
+  "w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50";
 
-const WarningIcon = ({ className = 'h-3.5 w-3.5' }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+const WarningIcon = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden
+  >
     <path
       fillRule="evenodd"
       d="M8.485 2.495a1.75 1.75 0 013.03 0l6.28 10.875A1.75 1.75 0 0116.28 16H3.72a1.75 1.75 0 01-1.515-2.63L8.485 2.495zM10 7a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 0110 7zm0 7.25a1 1 0 100-2 1 1 0 000 2z"
@@ -84,7 +108,7 @@ const WarningIcon = ({ className = 'h-3.5 w-3.5' }: { className?: string }) => (
 const formatDecimal = (raw: string): string => {
   const n = Number(raw);
   if (!Number.isFinite(n)) return raw;
-  return n.toLocaleString('es-GT', {
+  return n.toLocaleString("es-HN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -103,24 +127,26 @@ const calcularTotal = (cantidad: string, precio: string): number => {
  */
 const buildContinuidadTooltip = (d: DispensadoDto): string => {
   const parts: string[] = [
-    'El kilometraje no coincide con las movilizaciones del vehículo:',
+    "El kilometraje no coincide con las movilizaciones del vehículo:",
   ];
   const c = d.continuidad;
   if (c.prevKmFinal !== null && c.prevKmFinal !== d.kilometraje) {
-    parts.push(`• Anterior (km final): ${c.prevKmFinal.toLocaleString('es-GT')}`);
+    parts.push(
+      `• Anterior (km final): ${c.prevKmFinal.toLocaleString("es-HN")}`,
+    );
   }
   if (c.nextKmInicial !== null && c.nextKmInicial !== d.kilometraje) {
     parts.push(
-      `• Siguiente (km inicial): ${c.nextKmInicial.toLocaleString('es-GT')}`,
+      `• Siguiente (km inicial): ${c.nextKmInicial.toLocaleString("es-HN")}`,
     );
   }
-  return parts.join('\n');
+  return parts.join("\n");
 };
 
 /** "YYYY-MM-DD" del día actual en TZ local. */
 const hoyISO = (): string => {
   const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
+  const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
@@ -128,7 +154,7 @@ const hoyISO = (): string => {
 const hacePocosDiasISO = (dias: number): string => {
   const d = new Date();
   d.setDate(d.getDate() - dias);
-  const pad = (n: number) => String(n).padStart(2, '0');
+  const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
@@ -146,7 +172,7 @@ export const DispensadosPage = () => {
   const [unidades, setUnidades] = useState<UnidadDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
-  const [modo, setModo] = useState<Modo>({ tipo: 'oculto' });
+  const [modo, setModo] = useState<Modo>({ tipo: "oculto" });
   const [menuAcciones, setMenuAcciones] = useState<{
     dispensado: DispensadoDto;
     top: number;
@@ -204,8 +230,8 @@ export const DispensadosPage = () => {
   useEffect(() => {
     if (!menuAcciones) return;
     const onScroll = () => setMenuAcciones(null);
-    window.addEventListener('scroll', onScroll, true);
-    return () => window.removeEventListener('scroll', onScroll, true);
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
   }, [menuAcciones]);
 
   // Catálogo de vehículos (una vez).
@@ -219,7 +245,7 @@ export const DispensadosPage = () => {
       .catch((err) => {
         if (!cancelled) {
           setError(
-            err instanceof Error ? err.message : 'Error al cargar vehículos',
+            err instanceof Error ? err.message : "Error al cargar vehículos",
           );
         }
       });
@@ -244,7 +270,7 @@ export const DispensadosPage = () => {
       setTotal(res.total);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Error al cargar dispensados',
+        err instanceof Error ? err.message : "Error al cargar dispensados",
       );
     } finally {
       setLoading(false);
@@ -263,21 +289,21 @@ export const DispensadosPage = () => {
   const handleSubmit = async (
     data: CreateDispensadoDto | UpdateDispensadoDto,
   ) => {
-    if (modo.tipo === 'crear') {
+    if (modo.tipo === "crear") {
       await dispensadoService.create(data as CreateDispensadoDto);
-    } else if (modo.tipo === 'editar') {
+    } else if (modo.tipo === "editar") {
       await dispensadoService.update(modo.dispensado.id, data);
     }
-    setModo({ tipo: 'oculto' });
+    setModo({ tipo: "oculto" });
     await cargar();
   };
 
   const eliminar = async (d: DispensadoDto) => {
     const ok = await confirm({
-      title: 'Eliminar dispensado',
+      title: "Eliminar dispensado",
       message: `¿Eliminar el dispensado del ${formatFecha(d.fecha)}? Esta acción no se puede deshacer.`,
-      confirmText: 'Eliminar',
-      variant: 'danger',
+      confirmText: "Eliminar",
+      variant: "danger",
     });
     if (!ok) return;
     try {
@@ -287,7 +313,7 @@ export const DispensadosPage = () => {
       const msg =
         err instanceof ApiError
           ? err.message
-          : 'No se pudo eliminar el dispensado';
+          : "No se pudo eliminar el dispensado";
       window.alert(msg);
     }
   };
@@ -312,7 +338,7 @@ export const DispensadosPage = () => {
           </p>
           <button
             type="button"
-            onClick={() => setModo({ tipo: 'crear' })}
+            onClick={() => setModo({ tipo: "crear" })}
             className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500"
           >
             + Nuevo dispensado
@@ -322,7 +348,9 @@ export const DispensadosPage = () => {
         {/* Barra de filtros */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-600">Desde</label>
+            <label className="text-xs font-semibold text-slate-600">
+              Desde
+            </label>
             <input
               type="date"
               value={desde}
@@ -332,7 +360,9 @@ export const DispensadosPage = () => {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-600">Hasta</label>
+            <label className="text-xs font-semibold text-slate-600">
+              Hasta
+            </label>
             <input
               type="date"
               value={hasta}
@@ -373,222 +403,265 @@ export const DispensadosPage = () => {
 
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto lg:overflow-visible overscroll-x-contain [-webkit-overflow-scrolling:touch]">
-          <table className="w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Fecha</th>
-                <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}>Usuario</th>
-                <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Vehículo</th>
-                <th
-                  className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
-                  title="Kilometraje"
-                >
-                  Km
-                </th>
-                <th
-                  className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
-                  title="Cantidad de galones"
-                >
-                  Gal.
-                </th>
-                <th
-                  className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
-                  title="Precio por galón"
-                >
-                  L/gal
-                </th>
-                <th
-                  className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
-                  title="Total"
-                >
-                  Total
-                </th>
-                <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}>Observaciones</th>
-                <th
-                  scope="col"
-                  aria-label="Acciones"
-                  className="w-9 max-w-9 px-0.5 py-3 text-right sm:w-auto sm:max-w-none sm:px-2 lg:px-4"
-                >
-                  <span className="hidden sm:inline text-xs font-semibold uppercase tracking-wider text-slate-600">
-                    Acciones
-                  </span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
+            <table className="w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50">
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
-                    Cargando...
-                  </td>
+                  <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    Fecha
+                  </th>
+                  <th
+                    className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}
+                  >
+                    Usuario
+                  </th>
+                  <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    Vehículo
+                  </th>
+                  <th
+                    className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
+                    title="Kilometraje"
+                  >
+                    Km
+                  </th>
+                  <th
+                    className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
+                    title="Cantidad de galones"
+                  >
+                    Gal.
+                  </th>
+                  <th
+                    className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
+                    title="Precio por galón"
+                  >
+                    L/gal
+                  </th>
+                  <th
+                    className="px-2 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap"
+                    title="Total"
+                  >
+                    Total
+                  </th>
+                  <th
+                    className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}
+                  >
+                    Observaciones
+                  </th>
+                  <th
+                    scope="col"
+                    aria-label="Acciones"
+                    className="w-9 max-w-9 px-0.5 py-3 text-right sm:w-auto sm:max-w-none sm:px-2 lg:px-4"
+                  >
+                    <span className="hidden sm:inline text-xs font-semibold uppercase tracking-wider text-slate-600">
+                      Acciones
+                    </span>
+                  </th>
                 </tr>
-              ) : dispensados.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
-                    Sin registros para los filtros aplicados.
-                  </td>
-                </tr>
-              ) : (
-                dispensados.map((d) => {
-                  const totalQ = calcularTotal(d.cantidadGalones, d.precioGalon);
-                  const { fecha: fechaTxt, hora: horaTxt } = formatFechaPartes(d.fecha);
-                  return (
-                    <tr key={d.id}>
-                      <td className="px-3 lg:px-4 py-3 text-sm text-slate-800">
-                        <div className="font-semibold whitespace-nowrap">{fechaTxt}</div>
-                        <div className="text-xs text-slate-500 whitespace-nowrap">{horaTxt}</div>
-                      </td>
-                      <td className={`px-4 py-3 text-sm text-slate-800 ${COL_LG}`}>
-                        <div className="font-semibold">
-                          {d.usuario.nombre} {d.usuario.apellido}
-                        </div>
-                        <div className="text-xs text-slate-500 font-mono">
-                          {d.usuario.codigo_empleado}
-                        </div>
-                      </td>
-                      <td className="px-3 lg:px-4 py-3 text-sm text-slate-800">
-                        <div className="font-semibold">{d.unidad.nombre}</div>
-                        <div className="text-xs font-mono uppercase text-slate-500">
-                          {d.unidad.clase}
-                        </div>
-                      </td>
-                      <td
-                        className={
-                          'px-2 py-3 text-sm text-right font-mono whitespace-nowrap ' +
-                          (d.continuidad.alerta
-                            ? 'text-red-700'
-                            : 'text-slate-800')
-                        }
-                      >
-                        <span className="inline-flex items-center justify-end gap-1.5">
-                          {d.continuidad.alerta && (
-                            <span
-                              className="text-red-600"
-                              title={buildContinuidadTooltip(d)}
-                              aria-label={buildContinuidadTooltip(d)}
-                            >
-                              <WarningIcon />
-                            </span>
-                          )}
-                          <span>{d.kilometraje.toLocaleString('es-GT')}</span>
-                        </span>
-                      </td>
-                      <td className="px-2 py-3 text-sm text-right font-mono text-slate-800 whitespace-nowrap">
-                        {formatDecimal(d.cantidadGalones)}
-                      </td>
-                      <td className="px-2 py-3 text-sm text-right font-mono text-slate-800 whitespace-nowrap">
-                        {formatDecimal(d.precioGalon)}
-                      </td>
-                      <td
-                        className={
-                          'px-2 py-3 text-sm text-right font-mono font-semibold whitespace-nowrap ' +
-                          (totalQ === 0 ? 'text-red-600' : 'text-emerald-700')
-                        }
-                      >
-                        L {totalQ.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td
-                        className={
-                          `px-4 py-3 text-sm text-slate-700 max-w-[14rem] ${COL_LG} ` +
-                          (d.observaciones ? 'cursor-help' : '')
-                        }
-                        onMouseEnter={(e) =>
-                          d.observaciones && showObsTooltip(e, d.observaciones)
-                        }
-                        onMouseLeave={hideObsTooltip}
-                      >
-                        {d.observaciones ? (
-                          <span className="block truncate">{d.observaciones}</span>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-                      <td className="w-9 max-w-9 px-0.5 py-3 text-right whitespace-nowrap sm:w-auto sm:max-w-none sm:px-2 lg:px-4">
-                        <div className="inline-flex items-center justify-end">
-                          <div className="flex sm:hidden">
-                            {d.canManage ? (
-                              <button
-                                type="button"
-                                title="Más acciones"
-                                aria-label="Más acciones"
-                                aria-haspopup="menu"
-                                aria-expanded={menuAcciones?.dispensado.id === d.id}
-                                onClick={(e) => toggleMenuAcciones(e, d)}
-                                className={menuDotsBtnClass}
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      className="px-4 py-8 text-center text-slate-500"
+                    >
+                      Cargando...
+                    </td>
+                  </tr>
+                ) : dispensados.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      className="px-4 py-8 text-center text-slate-500"
+                    >
+                      Sin registros para los filtros aplicados.
+                    </td>
+                  </tr>
+                ) : (
+                  dispensados.map((d) => {
+                    const totalQ = calcularTotal(
+                      d.cantidadGalones,
+                      d.precioGalon,
+                    );
+                    const { fecha: fechaTxt, hora: horaTxt } =
+                      formatFechaPartes(d.fecha);
+                    return (
+                      <tr key={d.id}>
+                        <td className="px-3 lg:px-4 py-3 text-sm text-slate-800">
+                          <div className="font-semibold whitespace-nowrap">
+                            {fechaTxt}
+                          </div>
+                          <div className="text-xs text-slate-500 whitespace-nowrap">
+                            {horaTxt}
+                          </div>
+                        </td>
+                        <td
+                          className={`px-4 py-3 text-sm text-slate-800 ${COL_LG}`}
+                        >
+                          <div className="font-semibold">
+                            {d.usuario.nombre} {d.usuario.apellido}
+                          </div>
+                          <div className="text-xs text-slate-500 font-mono">
+                            {d.usuario.codigo_empleado}
+                          </div>
+                        </td>
+                        <td className="px-3 lg:px-4 py-3 text-sm text-slate-800">
+                          <div className="font-semibold">{d.unidad.nombre}</div>
+                          <div className="text-xs font-mono uppercase text-slate-500">
+                            {d.unidad.clase}
+                          </div>
+                        </td>
+                        <td
+                          className={
+                            "px-2 py-3 text-sm text-right font-mono whitespace-nowrap " +
+                            (d.continuidad.alerta
+                              ? "text-red-700"
+                              : "text-slate-800")
+                          }
+                        >
+                          <span className="inline-flex items-center justify-end gap-1.5">
+                            {d.continuidad.alerta && (
+                              <span
+                                className="text-red-600"
+                                title={buildContinuidadTooltip(d)}
+                                aria-label={buildContinuidadTooltip(d)}
                               >
-                                <EllipsisVerticalIcon />
-                              </button>
-                            ) : (
-                              <span className="text-xs text-slate-400">—</span>
+                                <WarningIcon />
+                              </span>
                             )}
-                          </div>
-                          <div className="hidden sm:flex lg:hidden items-center gap-1">
-                            {d.canManage ? (
-                              <>
+                            <span>{d.kilometraje.toLocaleString("es-HN")}</span>
+                          </span>
+                        </td>
+                        <td className="px-2 py-3 text-sm text-right font-mono text-slate-800 whitespace-nowrap">
+                          {formatDecimal(d.cantidadGalones)}
+                        </td>
+                        <td className="px-2 py-3 text-sm text-right font-mono text-slate-800 whitespace-nowrap">
+                          {formatDecimal(d.precioGalon)}
+                        </td>
+                        <td
+                          className={
+                            "px-2 py-3 text-sm text-right font-mono font-semibold whitespace-nowrap " +
+                            (totalQ === 0 ? "text-red-600" : "text-emerald-700")
+                          }
+                        >
+                          L{" "}
+                          {totalQ.toLocaleString("es-HN", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </td>
+                        <td
+                          className={
+                            `px-4 py-3 text-sm text-slate-700 max-w-[14rem] ${COL_LG} ` +
+                            (d.observaciones ? "cursor-help" : "")
+                          }
+                          onMouseEnter={(e) =>
+                            d.observaciones &&
+                            showObsTooltip(e, d.observaciones)
+                          }
+                          onMouseLeave={hideObsTooltip}
+                        >
+                          {d.observaciones ? (
+                            <span className="block truncate">
+                              {d.observaciones}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="w-9 max-w-9 px-0.5 py-3 text-right whitespace-nowrap sm:w-auto sm:max-w-none sm:px-2 lg:px-4">
+                          <div className="inline-flex items-center justify-end">
+                            <div className="flex sm:hidden">
+                              {d.canManage ? (
                                 <button
                                   type="button"
-                                  title="Editar"
-                                  aria-label="Editar"
-                                  onClick={() =>
-                                    setModo({ tipo: 'editar', dispensado: d })
+                                  title="Más acciones"
+                                  aria-label="Más acciones"
+                                  aria-haspopup="menu"
+                                  aria-expanded={
+                                    menuAcciones?.dispensado.id === d.id
                                   }
-                                  className={`${iconBtnClass} inline-flex border-slate-200 text-slate-600 hover:bg-slate-50`}
+                                  onClick={(e) => toggleMenuAcciones(e, d)}
+                                  className={menuDotsBtnClass}
                                 >
-                                  <PencilIcon />
+                                  <EllipsisVerticalIcon />
                                 </button>
-                                <button
-                                  type="button"
-                                  title="Eliminar"
-                                  aria-label="Eliminar"
-                                  onClick={() => eliminar(d)}
-                                  className={`${iconBtnClass} inline-flex border-red-200 text-red-600 hover:bg-red-50`}
-                                >
-                                  <TrashIcon />
-                                </button>
-                              </>
-                            ) : (
-                              <span className="text-xs text-slate-400">—</span>
-                            )}
+                              ) : (
+                                <span className="text-xs text-slate-400">
+                                  —
+                                </span>
+                              )}
+                            </div>
+                            <div className="hidden sm:flex lg:hidden items-center gap-1">
+                              {d.canManage ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    title="Editar"
+                                    aria-label="Editar"
+                                    onClick={() =>
+                                      setModo({ tipo: "editar", dispensado: d })
+                                    }
+                                    className={`${iconBtnClass} inline-flex border-slate-200 text-slate-600 hover:bg-slate-50`}
+                                  >
+                                    <PencilIcon />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Eliminar"
+                                    aria-label="Eliminar"
+                                    onClick={() => eliminar(d)}
+                                    className={`${iconBtnClass} inline-flex border-red-200 text-red-600 hover:bg-red-50`}
+                                  >
+                                    <TrashIcon />
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="text-xs text-slate-400">
+                                  —
+                                </span>
+                              )}
+                            </div>
+                            <div className="hidden lg:flex items-center gap-2">
+                              {d.canManage ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setModo({ tipo: "editar", dispensado: d })
+                                    }
+                                    className="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => eliminar(d)}
+                                    className="px-3 py-1 text-xs font-semibold rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                                  >
+                                    Eliminar
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="text-xs text-slate-400">
+                                  —
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="hidden lg:flex items-center gap-2">
-                            {d.canManage ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setModo({ tipo: 'editar', dispensado: d })
-                                  }
-                                  className="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => eliminar(d)}
-                                  className="px-3 py-1 text-xs font-semibold rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
-                                >
-                                  Eliminar
-                                </button>
-                              </>
-                            ) : (
-                              <span className="text-xs text-slate-400">—</span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
 
           {/* Footer paginador */}
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 bg-slate-50/50 text-sm text-slate-600">
             <span>
               {total === 0
-                ? 'Sin resultados'
+                ? "Sin resultados"
                 : `Mostrando ${desdeRegistro}–${hastaRegistro} de ${total}`}
             </span>
             <div className="flex items-center gap-2">
@@ -617,10 +690,10 @@ export const DispensadosPage = () => {
       </main>
 
       <DispensadoForm
-        open={modo.tipo !== 'oculto'}
-        initial={modo.tipo === 'editar' ? modo.dispensado : null}
+        open={modo.tipo !== "oculto"}
+        initial={modo.tipo === "editar" ? modo.dispensado : null}
         unidades={unidades}
-        onClose={() => setModo({ tipo: 'oculto' })}
+        onClose={() => setModo({ tipo: "oculto" })}
         onSubmit={handleSubmit}
       />
 
@@ -629,7 +702,7 @@ export const DispensadosPage = () => {
           <div
             role="tooltip"
             style={{
-              position: 'fixed',
+              position: "fixed",
               top: obsTooltip.top,
               left: obsTooltip.left,
               maxWidth: 360,
@@ -656,7 +729,7 @@ export const DispensadosPage = () => {
               role="menu"
               aria-label="Acciones de dispensado"
               style={{
-                position: 'fixed',
+                position: "fixed",
                 top: menuAcciones.top,
                 right: menuAcciones.right,
               }}
@@ -668,7 +741,7 @@ export const DispensadosPage = () => {
                 className={`${menuItemClass} text-slate-700`}
                 onClick={() => {
                   setModo({
-                    tipo: 'editar',
+                    tipo: "editar",
                     dispensado: menuAcciones.dispensado,
                   });
                   cerrarMenuAcciones();

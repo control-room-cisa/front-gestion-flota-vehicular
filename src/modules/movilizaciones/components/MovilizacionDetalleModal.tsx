@@ -1,11 +1,11 @@
-import type { ReactNode } from 'react';
-import { Modal } from '../../../shared/components/Modal';
-import type { MovilizacionDto } from '../types/movilizacion.types';
+import type { ReactNode } from "react";
+import { Modal } from "../../../shared/components/Modal";
+import type { MovilizacionDto } from "../types/movilizacion.types";
 
 const formatFechaCompleta = (iso: string): string =>
-  new Date(iso).toLocaleString('es-GT', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
+  new Date(iso).toLocaleString("es-HN", {
+    dateStyle: "medium",
+    timeStyle: "short",
   });
 
 interface DetalleRowProps {
@@ -92,17 +92,17 @@ export const MovilizacionDetalleModal = ({
         </DetalleRow>
         <DetalleRow label="Km inicial">
           <span className="font-mono">
-            {movilizacion.kilometrajeInicial.toLocaleString('es-GT')}
+            {movilizacion.kilometrajeInicial.toLocaleString("es-HN")}
           </span>
         </DetalleRow>
         <DetalleRow label="Km final">
           <span className="font-mono">
-            {movilizacion.kilometrajeFinal.toLocaleString('es-GT')}
+            {movilizacion.kilometrajeFinal.toLocaleString("es-HN")}
           </span>
         </DetalleRow>
         <DetalleRow label="Recorrido">
           <span className="font-mono font-semibold text-indigo-700">
-            {recorrido.toLocaleString('es-GT')} km
+            {recorrido.toLocaleString("es-HN")} km
           </span>
         </DetalleRow>
         <DetalleRow label="Es viaje">
@@ -132,7 +132,9 @@ export const MovilizacionDetalleModal = ({
           )}
         </DetalleRow>
         <DetalleRow label="Comentario">
-          <p className="whitespace-pre-line break-words">{movilizacion.comentario}</p>
+          <p className="whitespace-pre-line break-words">
+            {movilizacion.comentario}
+          </p>
         </DetalleRow>
       </dl>
     </Modal>

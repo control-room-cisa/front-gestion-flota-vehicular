@@ -14,13 +14,6 @@ export const CombustiblePage = () => {
 
   return (
     <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-slate-800">Combustible</h2>
-        <p className="text-sm text-slate-500 mt-1">
-          Tanque diesel y historial de precios por tipo de combustible.
-        </p>
-      </div>
-
       <div
         className="flex gap-1 border-b border-slate-200"
         role="tablist"

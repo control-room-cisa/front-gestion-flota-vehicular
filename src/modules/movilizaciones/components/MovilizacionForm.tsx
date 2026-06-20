@@ -1,25 +1,25 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useAuth } from '../../../shared/auth/AuthContext';
-import { Modal } from '../../../shared/components/Modal';
-import { SearchableSelect } from '../../../shared/components/SearchableSelect';
-import { useToast } from '../../../shared/components/ToastProvider';
-import { ApiError } from '../../../shared/http/api-client';
+import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../../../shared/auth/AuthContext";
+import { Modal } from "../../../shared/components/Modal";
+import { SearchableSelect } from "../../../shared/components/SearchableSelect";
+import { useToast } from "../../../shared/components/ToastProvider";
+import { ApiError } from "../../../shared/http/api-client";
 import {
   parseIntegerInput,
   sanitizeIntegerInput,
-} from '../../../shared/utils/numeric-input';
-import { isMovilizacionManager } from '../../../shared/types/roles.types';
-import type { ApiErrorDetail } from '../../../shared/types/api.types';
-import type { EmpresaDto } from '../../empresas/types/empresa.types';
-import type { UsuarioListadoDto } from '../../usuarios/types/usuario.types';
-import type { UnidadDto } from '../../unidades/types/unidad.types';
-import { movilizacionService } from '../services/movilizacion.service';
+} from "../../../shared/utils/numeric-input";
+import { isMovilizacionManager } from "../../../shared/types/roles.types";
+import type { ApiErrorDetail } from "../../../shared/types/api.types";
+import type { EmpresaDto } from "../../empresas/types/empresa.types";
+import type { UsuarioListadoDto } from "../../usuarios/types/usuario.types";
+import type { UnidadDto } from "../../unidades/types/unidad.types";
+import { movilizacionService } from "../services/movilizacion.service";
 import type {
   CreateMovilizacionDto,
   MovilizacionDto,
   UltimaMovilizacionUnidadDto,
   UpdateMovilizacionDto,
-} from '../types/movilizacion.types';
+} from "../types/movilizacion.types";
 
 export interface MovilizacionFormProps {
   open: boolean;
@@ -33,12 +33,14 @@ export interface MovilizacionFormProps {
    */
   usuarios: UsuarioListadoDto[];
   onClose: () => void;
-  onSubmit: (data: CreateMovilizacionDto | UpdateMovilizacionDto) => Promise<void>;
+  onSubmit: (
+    data: CreateMovilizacionDto | UpdateMovilizacionDto,
+  ) => Promise<void>;
 }
 
 const toLocalInput = (iso?: string): string => {
   const d = iso ? new Date(iso) : new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
+  const pad = (n: number) => String(n).padStart(2, "0");
   return (
     `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
     `T${pad(d.getHours())}:${pad(d.getMinutes())}`
@@ -51,38 +53,38 @@ const fromLocalInput = (local: string): string => new Date(local).toISOString();
 const RECORRIDO_ALERTA_KM = 40;
 
 const formatFecha = (iso: string): string =>
-  new Date(iso).toLocaleString('es-GT', {
-    dateStyle: 'short',
-    timeStyle: 'short',
+  new Date(iso).toLocaleString("es-HN", {
+    dateStyle: "short",
+    timeStyle: "short",
   });
 
 type FormField =
-  | 'usuario'
-  | 'unidad'
-  | 'kmInicial'
-  | 'kmFinal'
-  | 'fecha'
-  | 'empresaIds'
-  | 'comentario';
+  | "usuario"
+  | "unidad"
+  | "kmInicial"
+  | "kmFinal"
+  | "fecha"
+  | "empresaIds"
+  | "comentario";
 
 type FieldErrors = Partial<Record<FormField, string>>;
 
 /** Mapea paths del backend (Zod / negocio) a campos del formulario. */
 const API_FIELD_MAP: Record<string, FormField> = {
-  'data.fecha': 'fecha',
-  fecha: 'fecha',
-  'data.kilometrajeInicial': 'kmInicial',
-  kilometrajeInicial: 'kmInicial',
-  'data.kilometrajeFinal': 'kmFinal',
-  kilometrajeFinal: 'kmFinal',
-  'data.comentario': 'comentario',
-  comentario: 'comentario',
-  'data.unidadId': 'unidad',
-  unidadId: 'unidad',
-  'data.empresaIds': 'empresaIds',
-  empresaIds: 'empresaIds',
-  'data.userId': 'usuario',
-  userId: 'usuario',
+  "data.fecha": "fecha",
+  fecha: "fecha",
+  "data.kilometrajeInicial": "kmInicial",
+  kilometrajeInicial: "kmInicial",
+  "data.kilometrajeFinal": "kmFinal",
+  kilometrajeFinal: "kmFinal",
+  "data.comentario": "comentario",
+  comentario: "comentario",
+  "data.unidadId": "unidad",
+  unidadId: "unidad",
+  "data.empresaIds": "empresaIds",
+  empresaIds: "empresaIds",
+  "data.userId": "usuario",
+  userId: "usuario",
 };
 
 const mapApiErrors = (errors: ApiErrorDetail[]): FieldErrors => {
@@ -95,17 +97,17 @@ const mapApiErrors = (errors: ApiErrorDetail[]): FieldErrors => {
   return out;
 };
 
-const inputClass = (hasError: boolean, extra = '') =>
+const inputClass = (hasError: boolean, extra = "") =>
   [
-    'px-3 py-2 rounded-lg border outline-none',
+    "px-3 py-2 rounded-lg border outline-none",
     hasError
-      ? 'border-red-400 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-red-50/40'
-      : 'border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500',
+      ? "border-red-400 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-red-50/40"
+      : "border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500",
     extra,
-  ].join(' ');
+  ].join(" ");
 
 const labelClass = (hasError: boolean) =>
-  `text-sm font-semibold ${hasError ? 'text-red-600' : 'text-slate-700'}`;
+  `text-sm font-semibold ${hasError ? "text-red-600" : "text-slate-700"}`;
 
 const FieldError = ({ message }: { message?: string }) =>
   message ? <p className="text-xs text-red-600">{message}</p> : null;
@@ -125,12 +127,12 @@ export const MovilizacionForm = ({
 
   const isManager = isMovilizacionManager(usuario?.roles);
 
-  const [fecha, setFecha] = useState('');
+  const [fecha, setFecha] = useState("");
   const [unidad, setUnidad] = useState<UnidadDto | null>(null);
   const [usuarioSel, setUsuarioSel] = useState<UsuarioListadoDto | null>(null);
-  const [kmInicial, setKmInicial] = useState('');
-  const [kmFinal, setKmFinal] = useState('');
-  const [comentario, setComentario] = useState('');
+  const [kmInicial, setKmInicial] = useState("");
+  const [kmFinal, setKmFinal] = useState("");
+  const [comentario, setComentario] = useState("");
   const [esViaje, setEsViaje] = useState(false);
   const [empresaIds, setEmpresaIds] = useState<number[]>([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -152,10 +154,7 @@ export const MovilizacionForm = ({
 
   const unidadesOptions = useMemo<UnidadDto[]>(() => {
     const activos = unidades.filter((v) => v.activo);
-    if (
-      initial &&
-      !activos.some((v) => v.id === initial.unidad.id)
-    ) {
+    if (initial && !activos.some((v) => v.id === initial.unidad.id)) {
       return [...activos, { ...initial.unidad, activo: false } as UnidadDto];
     }
     return activos;
@@ -185,9 +184,9 @@ export const MovilizacionForm = ({
     if (!open) return;
 
     setFecha(toLocalInput(initial?.fecha));
-    setKmInicial(initial ? String(initial.kilometrajeInicial) : '');
-    setKmFinal(initial ? String(initial.kilometrajeFinal) : '');
-    setComentario(initial?.comentario ?? '');
+    setKmInicial(initial ? String(initial.kilometrajeInicial) : "");
+    setKmFinal(initial ? String(initial.kilometrajeFinal) : "");
+    setComentario(initial?.comentario ?? "");
     setEsViaje(initial?.esViaje ?? false);
     setFieldErrors({});
     setUltima(null);
@@ -293,7 +292,7 @@ export const MovilizacionForm = ({
   }, [open, unidad, fecha, initial?.id]);
 
   const toggleEmpresa = (id: number) => {
-    clearField('empresaIds');
+    clearField("empresaIds");
     setEmpresaIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
@@ -311,14 +310,18 @@ export const MovilizacionForm = ({
   const showValidationToast = (errs: FieldErrors, fallbackMessage?: string) => {
     const messages = Object.values(errs);
     if (messages.length === 0) {
-      toast.warning(fallbackMessage ?? 'Revisa el formulario.', 'Datos inválidos');
+      toast.warning(
+        fallbackMessage ?? "Revisa el formulario.",
+        "Datos inválidos",
+      );
       return;
     }
     toast.warning(
       messages.length === 1
         ? messages[0]!
-        : fallbackMessage ?? `Hay ${messages.length} campos con errores. Revisa el formulario.`,
-      'Datos inválidos',
+        : (fallbackMessage ??
+            `Hay ${messages.length} campos con errores. Revisa el formulario.`),
+      "Datos inválidos",
     );
   };
 
@@ -330,37 +333,37 @@ export const MovilizacionForm = ({
   const validateClient = (): FieldErrors => {
     const errs: FieldErrors = {};
 
-    if (!unidad) errs.unidad = 'Selecciona un vehículo';
-    if (isManager && !usuarioSel) errs.usuario = 'Selecciona un usuario';
+    if (!unidad) errs.unidad = "Selecciona un vehículo";
+    if (isManager && !usuarioSel) errs.usuario = "Selecciona un usuario";
 
     const kmIni = parseIntegerInput(kmInicial);
     const kmFin = parseIntegerInput(kmFinal);
 
     if (kmIni === null) {
-      errs.kmInicial = 'Ingresa un kilometraje inicial entero válido';
+      errs.kmInicial = "Ingresa un kilometraje inicial entero válido";
     }
     if (kmFin === null) {
-      errs.kmFinal = 'Ingresa un kilometraje final entero válido';
+      errs.kmFinal = "Ingresa un kilometraje final entero válido";
     }
     if (kmIni !== null && kmFin !== null && kmFin < kmIni) {
-      errs.kmFinal = 'El kilometraje final debe ser mayor o igual al inicial';
+      errs.kmFinal = "El kilometraje final debe ser mayor o igual al inicial";
     }
 
     if (!fecha.trim()) {
-      errs.fecha = 'La fecha y hora son obligatorias';
+      errs.fecha = "La fecha y hora son obligatorias";
     } else if (Number.isNaN(new Date(fecha).getTime())) {
-      errs.fecha = 'Fecha inválida';
+      errs.fecha = "Fecha inválida";
     }
 
     if (isManager && empresaIds.length === 0) {
-      errs.empresaIds = 'Selecciona al menos una empresa';
+      errs.empresaIds = "Selecciona al menos una empresa";
     }
     if (noTieneEmpresa) {
       errs.empresaIds =
-        'No tienes una empresa asignada. Contacta al administrador.';
+        "No tienes una empresa asignada. Contacta al administrador.";
     }
     if (!comentario.trim()) {
-      errs.comentario = 'El comentario es obligatorio';
+      errs.comentario = "El comentario es obligatorio";
     }
 
     return errs;
@@ -368,12 +371,13 @@ export const MovilizacionForm = ({
 
   // No-manager: la empresa siempre es la del usuario. Se muestra como info
   // pero no entra al payload (el backend la inferirá).
-  const empresaPropia = !isManager ? usuario?.empresa ?? null : null;
+  const empresaPropia = !isManager ? (usuario?.empresa ?? null) : null;
   const noTieneEmpresa = !isManager && !empresaPropia;
 
   // En edición + no-manager: mostramos las empresas del registro existente
   // (read-only), no la del usuario actual.
-  const empresasInitialNoManager = !isManager && initial ? initial.empresas : null;
+  const empresasInitialNoManager =
+    !isManager && initial ? initial.empresas : null;
 
   // ---------------------------------------------------------------------------
   // Cálculos derivados (recorrido + alertas).
@@ -421,7 +425,8 @@ export const MovilizacionForm = ({
       };
       if (isManager) {
         (payload as CreateMovilizacionDto).empresaIds = empresaIds;
-        if (usuarioSel) (payload as CreateMovilizacionDto).userId = usuarioSel.id;
+        if (usuarioSel)
+          (payload as CreateMovilizacionDto).userId = usuarioSel.id;
         (payload as CreateMovilizacionDto).esViaje = esViaje;
       }
       await onSubmit(payload);
@@ -431,12 +436,12 @@ export const MovilizacionForm = ({
         if (Object.keys(mapped).length > 0) {
           applyFieldErrors(mapped, err.message);
         } else {
-          toast.error(err.message, 'No se pudo guardar');
+          toast.error(err.message, "No se pudo guardar");
         }
       } else {
         toast.error(
-          err instanceof Error ? err.message : 'Error al guardar',
-          'No se pudo guardar',
+          err instanceof Error ? err.message : "Error al guardar",
+          "No se pudo guardar",
         );
       }
     } finally {
@@ -446,19 +451,19 @@ export const MovilizacionForm = ({
 
   const usuarioPropioLabel = usuario
     ? `${usuario.nombre} ${usuario.apellido} (${usuario.codigo_empleado})`
-    : '';
+    : "";
 
   const recorridoInputClass = [
-    'px-3 py-2 rounded-lg border bg-slate-100 cursor-not-allowed font-mono',
+    "px-3 py-2 rounded-lg border bg-slate-100 cursor-not-allowed font-mono",
     recorridoAltoAlerta
-      ? 'border-amber-400 text-amber-800'
-      : 'border-slate-200 text-slate-700',
-  ].join(' ');
+      ? "border-amber-400 text-amber-800"
+      : "border-slate-200 text-slate-700",
+  ].join(" ");
 
   return (
     <Modal
       open={open}
-      title={editing ? 'Editar movilización' : 'Nueva movilización'}
+      title={editing ? "Editar movilización" : "Nueva movilización"}
       subtitle="Ingreso de kilometrajes"
       size="lg"
       busy={submitting}
@@ -471,21 +476,27 @@ export const MovilizacionForm = ({
           disabled={submitting || noTieneEmpresa}
           className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-70"
         >
-          {submitting ? 'Guardando...' : editing ? 'Actualizar' : 'Registrar'}
+          {submitting ? "Guardando..." : editing ? "Actualizar" : "Registrar"}
         </button>
       }
     >
-      <form id="movilizacion-form" onSubmit={handleSubmit} className="space-y-4">
+      <form
+        id="movilizacion-form"
+        onSubmit={handleSubmit}
+        className="space-y-4"
+      >
         {/* Usuario */}
         <div className="flex flex-col gap-1">
-          <label className={labelClass(Boolean(fieldErrors.usuario))}>Usuario</label>
+          <label className={labelClass(Boolean(fieldErrors.usuario))}>
+            Usuario
+          </label>
           {isManager ? (
             <SearchableSelect<UsuarioListadoDto>
               options={usuariosOptions}
               value={usuarioSel}
               onChange={(v) => {
                 setUsuarioSel(v);
-                clearField('usuario');
+                clearField("usuario");
               }}
               getKey={(u) => u.id}
               getLabel={(u) => `${u.nombre} ${u.apellido}`}
@@ -495,7 +506,7 @@ export const MovilizacionForm = ({
                   : u.codigo_empleado
               }
               getSearchText={(u) =>
-                `${u.nombre} ${u.apellido} ${u.codigo_empleado} ${u.empresa?.codigo ?? ''} ${u.empresa?.nombre ?? ''}`
+                `${u.nombre} ${u.apellido} ${u.codigo_empleado} ${u.empresa?.codigo ?? ""} ${u.empresa?.nombre ?? ""}`
               }
               placeholder="Buscar por nombre o código..."
               emptyText="Sin usuarios"
@@ -515,13 +526,15 @@ export const MovilizacionForm = ({
 
         {/* Vehículo */}
         <div className="flex flex-col gap-1">
-          <label className={labelClass(Boolean(fieldErrors.unidad))}>Vehículo</label>
+          <label className={labelClass(Boolean(fieldErrors.unidad))}>
+            Vehículo
+          </label>
           <SearchableSelect<UnidadDto>
             options={unidadesOptions}
             value={unidad}
             onChange={(v) => {
               setUnidad(v);
-              clearField('unidad');
+              clearField("unidad");
             }}
             getKey={(v) => v.id}
             getLabel={(v) => v.nombre}
@@ -552,11 +565,14 @@ export const MovilizacionForm = ({
               value={kmInicial}
               onChange={(e) => {
                 setKmInicial(sanitizeIntegerInput(e.target.value));
-                clearField('kmInicial');
+                clearField("kmInicial");
               }}
               required
               aria-invalid={Boolean(fieldErrors.kmInicial) || undefined}
-              className={inputClass(Boolean(fieldErrors.kmInicial), 'font-mono')}
+              className={inputClass(
+                Boolean(fieldErrors.kmInicial),
+                "font-mono",
+              )}
             />
             <FieldError message={fieldErrors.kmInicial} />
           </div>
@@ -570,11 +586,11 @@ export const MovilizacionForm = ({
               value={kmFinal}
               onChange={(e) => {
                 setKmFinal(sanitizeIntegerInput(e.target.value));
-                clearField('kmFinal');
+                clearField("kmFinal");
               }}
               required
               aria-invalid={Boolean(fieldErrors.kmFinal) || undefined}
-              className={inputClass(Boolean(fieldErrors.kmFinal), 'font-mono')}
+              className={inputClass(Boolean(fieldErrors.kmFinal), "font-mono")}
             />
             <FieldError message={fieldErrors.kmFinal} />
           </div>
@@ -584,7 +600,9 @@ export const MovilizacionForm = ({
             </label>
             <input
               type="text"
-              value={recorrido !== null ? recorrido.toLocaleString('es-GT') : ''}
+              value={
+                recorrido !== null ? recorrido.toLocaleString("es-HN") : ""
+              }
               readOnly
               tabIndex={-1}
               placeholder="—"
@@ -606,7 +624,7 @@ export const MovilizacionForm = ({
               value={fecha}
               onChange={(e) => {
                 setFecha(e.target.value);
-                clearField('fecha');
+                clearField("fecha");
               }}
               required
               aria-invalid={Boolean(fieldErrors.fecha) || undefined}
@@ -620,14 +638,14 @@ export const MovilizacionForm = ({
         {unidad && !ultimaCargando && continuidadAlerta && ultima && (
           <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-sm">
             <strong className="font-semibold">Aviso:</strong> el último km final
-            registrado para este vehículo fue{' '}
+            registrado para este vehículo fue{" "}
             <span className="font-mono">
-              {ultima.kilometrajeFinal.toLocaleString('es-GT')}
-            </span>{' '}
+              {ultima.kilometrajeFinal.toLocaleString("es-HN")}
+            </span>{" "}
             ({formatFecha(ultima.fecha)}) y no coincide con el km inicial
-            ingresado{' '}
+            ingresado{" "}
             <span className="font-mono">
-              {(kmIniNum ?? 0).toLocaleString('es-GT')}
+              {(kmIniNum ?? 0).toLocaleString("es-HN")}
             </span>
             .
           </div>
@@ -641,15 +659,16 @@ export const MovilizacionForm = ({
                 Empresas movilizadas
               </label>
               <span className="text-xs text-slate-500">
-                {empresaIds.length} seleccionada{empresaIds.length === 1 ? '' : 's'}
+                {empresaIds.length} seleccionada
+                {empresaIds.length === 1 ? "" : "s"}
               </span>
             </div>
             <div
               className={
-                'border rounded-lg max-h-44 overflow-y-auto divide-y divide-slate-100 ' +
+                "border rounded-lg max-h-44 overflow-y-auto divide-y divide-slate-100 " +
                 (fieldErrors.empresaIds
-                  ? 'border-red-400 bg-red-50/40'
-                  : 'border-slate-200')
+                  ? "border-red-400 bg-red-50/40"
+                  : "border-slate-200")
               }
             >
               {empresasActivas.length === 0 ? (
@@ -683,7 +702,9 @@ export const MovilizacionForm = ({
           </div>
         ) : (
           <div className="flex flex-col gap-1">
-            <label className={labelClass(Boolean(fieldErrors.empresaIds))}>Empresa</label>
+            <label className={labelClass(Boolean(fieldErrors.empresaIds))}>
+              Empresa
+            </label>
             {empresasInitialNoManager && empresasInitialNoManager.length > 0 ? (
               <div className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 flex flex-wrap gap-1">
                 {empresasInitialNoManager.map((e) => (
@@ -742,13 +763,16 @@ export const MovilizacionForm = ({
             value={comentario}
             onChange={(e) => {
               setComentario(e.target.value);
-              clearField('comentario');
+              clearField("comentario");
             }}
             maxLength={500}
             required
             rows={3}
             aria-invalid={Boolean(fieldErrors.comentario) || undefined}
-            className={inputClass(Boolean(fieldErrors.comentario), 'resize-none')}
+            className={inputClass(
+              Boolean(fieldErrors.comentario),
+              "resize-none",
+            )}
             placeholder="Detalle del recorrido, motivo, observaciones..."
           />
           <FieldError message={fieldErrors.comentario} />

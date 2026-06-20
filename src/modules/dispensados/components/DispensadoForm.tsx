@@ -40,13 +40,13 @@ const fromLocalInput = (local: string): string => new Date(local).toISOString();
 
 /** Formatea un monto en lempiras (HNL) con 2 decimales. */
 const formatLempiras = (n: number): string =>
-  n.toLocaleString("es-GT", {
+  n.toLocaleString("es-HN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
 const formatFecha = (iso: string): string =>
-  new Date(iso).toLocaleString("es-GT", {
+  new Date(iso).toLocaleString("es-HN", {
     dateStyle: "short",
     timeStyle: "short",
   });
@@ -366,7 +366,7 @@ export const DispensadoForm = ({
               <strong className="font-semibold">Aviso:</strong> el kilometraje
               final de la última movilización es{" "}
               <span className="font-mono font-semibold">
-                {ultimaMov.kilometrajeFinal.toLocaleString("es-GT")}
+                {ultimaMov.kilometrajeFinal.toLocaleString("es-HN")}
               </span>{" "}
               ({formatFecha(ultimaMov.fecha)}) y debe ser igual al actual.
               Asegúrese de ingresar el kilometraje correcto o reporte el caso
@@ -392,7 +392,7 @@ export const DispensadoForm = ({
                 <div className="pl-3">
                   • Movilización anterior — km final{" "}
                   <span className="font-mono font-semibold">
-                    {continuidadEdicion.prevKmFinal.toLocaleString("es-GT")}
+                    {continuidadEdicion.prevKmFinal.toLocaleString("es-HN")}
                   </span>
                   {continuidadEdicion.prevFecha
                     ? ` (${formatFecha(continuidadEdicion.prevFecha)})`
@@ -404,7 +404,7 @@ export const DispensadoForm = ({
                 <div className="pl-3">
                   • Movilización siguiente — km inicial{" "}
                   <span className="font-mono font-semibold">
-                    {continuidadEdicion.nextKmInicial.toLocaleString("es-GT")}
+                    {continuidadEdicion.nextKmInicial.toLocaleString("es-HN")}
                   </span>
                   {continuidadEdicion.nextFecha
                     ? ` (${formatFecha(continuidadEdicion.nextFecha)})`

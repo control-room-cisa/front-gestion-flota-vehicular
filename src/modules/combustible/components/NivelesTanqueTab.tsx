@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useConfirm } from '../../../shared/components/ConfirmProvider';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { useConfirm } from "../../../shared/components/ConfirmProvider";
 import {
   EllipsisVerticalIcon,
   PencilIcon,
@@ -10,39 +10,67 @@ import {
   menuDotsBtnClass,
   menuItemClass,
   tableScrollWrapClass,
-} from '../../../shared/components/TableActionUi';
-import { ApiError } from '../../../shared/http/api-client';
-import { parseDecimalInput } from '../../../shared/utils/numeric-input';
-import { NivelTanqueDieselForm } from './NivelTanqueDieselForm';
-import { TanqueVisual } from './TanqueVisual';
-import { nivelTanqueDieselService } from '../services/nivel-tanque-diesel.service';
+} from "../../../shared/components/TableActionUi";
+import { ApiError } from "../../../shared/http/api-client";
+import { parseDecimalInput } from "../../../shared/utils/numeric-input";
+import { NivelTanqueDieselForm } from "./NivelTanqueDieselForm";
+import { TanqueVisual } from "./TanqueVisual";
+import { nivelTanqueDieselService } from "../services/nivel-tanque-diesel.service";
 import {
   capacidadTanqueDieselGalones,
   formatGalonesDisplay,
   volumenGalonesDesdeAlturaTanque,
-} from '../utils/tanque-cilindrico';
+} from "../utils/tanque-cilindrico";
 import type {
   CreateNivelTanqueDieselDto,
   NivelTanqueDieselDto,
   UpdateNivelTanqueDieselDto,
-} from '../types/nivel-tanque-diesel.types';
+} from "../types/nivel-tanque-diesel.types";
 
 type Modo =
-  | { tipo: 'oculto' }
-  | { tipo: 'crear' }
-  | { tipo: 'editar'; nivel: NivelTanqueDieselDto };
+  | { tipo: "oculto" }
+  | { tipo: "crear" }
+  | { tipo: "editar"; nivel: NivelTanqueDieselDto };
 
 const PAGE_SIZE = 5;
 
 const formatFecha = (iso: string): string =>
-  new Date(iso).toLocaleString('es-GT', {
-    dateStyle: 'short',
-    timeStyle: 'short',
+  new Date(iso).toLocaleString("es-HN", {
+    dateStyle: "short",
+    timeStyle: "short",
   });
 
 const calcPorcentaje = (volumen: number, capacidad: number): number => {
   if (capacidad <= 0) return 0;
   return Math.min(100, Math.max(0, (volumen / capacidad) * 100));
+};
+
+const volumenGalonesNivel = (n: NivelTanqueDieselDto): number =>
+  volumenGalonesDesdeAlturaTanque(parseDecimalInput(n.alturaPulgadas) ?? 0) ??
+  0;
+
+type NivelConDiferencia = NivelTanqueDieselDto & {
+  /** Variación de volumen vs el registro anterior (más antiguo). */
+  diferenciaGal: number | null;
+};
+
+const buildNivelesConDiferencia = (
+  items: NivelTanqueDieselDto[],
+): NivelConDiferencia[] =>
+  items.map((n, i) => {
+    const anterior = items[i + 1];
+    if (!anterior) return { ...n, diferenciaGal: null };
+    return {
+      ...n,
+      diferenciaGal: volumenGalonesNivel(n) - volumenGalonesNivel(anterior),
+    };
+  });
+
+const formatDiferenciaGal = (diff: number): string => {
+  const abs = formatGalonesDisplay(Math.abs(diff));
+  if (diff > 0) return `+${abs}`;
+  if (diff < 0) return `-${abs}`;
+  return abs;
 };
 
 const CAPACIDAD_GALONES = capacidadTanqueDieselGalones();
@@ -55,7 +83,7 @@ export const NivelesTanqueTab = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
-  const [modo, setModo] = useState<Modo>({ tipo: 'oculto' });
+  const [modo, setModo] = useState<Modo>({ tipo: "oculto" });
   const [menuAcciones, setMenuAcciones] = useState<{
     nivel: NivelTanqueDieselDto;
     top: number;
@@ -83,7 +111,9 @@ export const NivelesTanqueTab = () => {
       setTotal(res.total);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Error al cargar niveles del tanque',
+        err instanceof Error
+          ? err.message
+          : "Error al cargar niveles del tanque",
       );
     } finally {
       setLoading(false);
@@ -100,11 +130,14 @@ export const NivelesTanqueTab = () => {
 
   const porcentajeTanque = useMemo(() => {
     if (!ultimo) return 0;
-    const altura = parseDecimalInput(ultimo.alturaPulgadas);
-    const vol =
-      altura !== null ? (volumenGalonesDesdeAlturaTanque(altura) ?? 0) : 0;
+    const vol = volumenGalonesNivel(ultimo);
     return calcPorcentaje(vol, CAPACIDAD_GALONES);
   }, [ultimo]);
+
+  const nivelesConDiferencia = useMemo(
+    () => buildNivelesConDiferencia(niveles),
+    [niveles],
+  );
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const desdeRegistro = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -130,29 +163,29 @@ export const NivelesTanqueTab = () => {
   useEffect(() => {
     if (!menuAcciones) return;
     const onScroll = () => setMenuAcciones(null);
-    window.addEventListener('scroll', onScroll, true);
-    return () => window.removeEventListener('scroll', onScroll, true);
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
   }, [menuAcciones]);
 
   const handleSubmit = async (
     data: CreateNivelTanqueDieselDto | UpdateNivelTanqueDieselDto,
   ) => {
-    if (modo.tipo === 'crear') {
+    if (modo.tipo === "crear") {
       await nivelTanqueDieselService.create(data as CreateNivelTanqueDieselDto);
       setPage(1);
-    } else if (modo.tipo === 'editar') {
+    } else if (modo.tipo === "editar") {
       await nivelTanqueDieselService.update(modo.nivel.id, data);
     }
-    setModo({ tipo: 'oculto' });
+    setModo({ tipo: "oculto" });
     await cargar();
   };
 
   const eliminar = async (nivel: NivelTanqueDieselDto) => {
     const ok = await confirm({
-      title: 'Eliminar registro',
+      title: "Eliminar registro",
       message: `¿Eliminar el nivel del ${formatFecha(nivel.fecha)}?`,
-      confirmText: 'Eliminar',
-      variant: 'danger',
+      confirmText: "Eliminar",
+      variant: "danger",
     });
     if (!ok) return;
     try {
@@ -161,7 +194,9 @@ export const NivelesTanqueTab = () => {
       else await cargar();
     } catch (err) {
       const msg =
-        err instanceof ApiError ? err.message : 'No se pudo eliminar el registro';
+        err instanceof ApiError
+          ? err.message
+          : "No se pudo eliminar el registro";
       window.alert(msg);
     }
   };
@@ -189,7 +224,7 @@ export const NivelesTanqueTab = () => {
             </div>
             <button
               type="button"
-              onClick={() => setModo({ tipo: 'crear' })}
+              onClick={() => setModo({ tipo: "crear" })}
               className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500"
             >
               Nuevo registro
@@ -203,7 +238,7 @@ export const NivelesTanqueTab = () => {
           )}
 
           <div className={tableScrollWrapClass}>
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[720px] text-sm">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
                   <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
@@ -214,6 +249,9 @@ export const NivelesTanqueTab = () => {
                   </th>
                   <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
                     Volumen (gal)
+                  </th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    Diferencia
                   </th>
                   <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
                     Relleno
@@ -230,18 +268,24 @@ export const NivelesTanqueTab = () => {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
+                    <td
+                      colSpan={8}
+                      className="px-4 py-10 text-center text-slate-500"
+                    >
                       Cargando…
                     </td>
                   </tr>
                 ) : niveles.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
+                    <td
+                      colSpan={8}
+                      className="px-4 py-10 text-center text-slate-500"
+                    >
                       Sin registros. Agrega el primer nivel del tanque.
                     </td>
                   </tr>
                 ) : (
-                  niveles.map((n) => (
+                  nivelesConDiferencia.map((n) => (
                     <tr key={n.id} className="hover:bg-slate-50/80">
                       <td className="px-3 py-3 text-slate-800 whitespace-nowrap">
                         {formatFecha(n.fecha)}
@@ -250,11 +294,23 @@ export const NivelesTanqueTab = () => {
                         {n.alturaPulgadas}
                       </td>
                       <td className="px-3 py-3 text-slate-700 tabular-nums">
-                        {formatGalonesDisplay(
-                          volumenGalonesDesdeAlturaTanque(
-                            parseDecimalInput(n.alturaPulgadas) ?? 0,
-                          ) ?? 0,
-                        )}
+                        {formatGalonesDisplay(volumenGalonesNivel(n))}
+                      </td>
+                      <td
+                        className={
+                          "px-3 py-3 text-right tabular-nums font-semibold whitespace-nowrap " +
+                          (n.diferenciaGal === null
+                            ? "text-slate-400"
+                            : n.diferenciaGal > 0
+                              ? "text-emerald-600"
+                              : n.diferenciaGal < 0
+                                ? "text-red-600"
+                                : "text-slate-500")
+                        }
+                      >
+                        {n.diferenciaGal === null
+                          ? "—"
+                          : formatDiferenciaGal(n.diferenciaGal)}
                       </td>
                       <td className="px-3 py-3">
                         {n.rellenoCombustible ? (
@@ -266,10 +322,10 @@ export const NivelesTanqueTab = () => {
                         )}
                       </td>
                       <td className="px-3 py-3 text-slate-700 tabular-nums">
-                        {n.galonesRellenados ?? '—'}
+                        {n.galonesRellenados ?? "—"}
                       </td>
                       <td className="px-3 py-3 text-slate-600 max-w-[200px] truncate">
-                        {n.comentario || '—'}
+                        {n.comentario || "—"}
                       </td>
                       <td className={actionsCellClass}>
                         <button
@@ -291,7 +347,7 @@ export const NivelesTanqueTab = () => {
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 bg-slate-50/50 text-sm text-slate-600">
             <span>
               {total === 0
-                ? 'Sin resultados'
+                ? "Sin resultados"
                 : `Mostrando ${desdeRegistro}–${hastaRegistro} de ${total}`}
             </span>
             <div className="flex items-center gap-2">
@@ -320,9 +376,9 @@ export const NivelesTanqueTab = () => {
       </div>
 
       <NivelTanqueDieselForm
-        open={modo.tipo !== 'oculto'}
-        initial={modo.tipo === 'editar' ? modo.nivel : null}
-        onClose={() => setModo({ tipo: 'oculto' })}
+        open={modo.tipo !== "oculto"}
+        initial={modo.tipo === "editar" ? modo.nivel : null}
+        onClose={() => setModo({ tipo: "oculto" })}
         onSubmit={handleSubmit}
       />
 
@@ -338,7 +394,7 @@ export const NivelesTanqueTab = () => {
               role="menuitem"
               className={menuItemClass}
               onClick={() => {
-                setModo({ tipo: 'editar', nivel: menuAcciones.nivel });
+                setModo({ tipo: "editar", nivel: menuAcciones.nivel });
                 setMenuAcciones(null);
               }}
             >

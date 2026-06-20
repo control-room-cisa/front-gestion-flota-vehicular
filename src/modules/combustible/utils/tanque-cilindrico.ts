@@ -1,18 +1,18 @@
-import { TANQUE_DIESEL_MEDIDAS } from '../constants/tanque-diesel.constants';
+import { TANQUE_DIESEL_MEDIDAS } from "../constants/tanque-diesel.constants";
 
 /** Pulgadas cúbicas por galón estadounidense. */
 const CU_IN_PER_US_GAL = 231;
 
 /** Formato visual de galones: 2 decimales; los cálculos usan precisión completa. */
 export const formatGalonesDisplay = (galones: number): string =>
-  galones.toLocaleString('es-GT', {
+  galones.toLocaleString("es-HN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
 /** Porcentaje de llenado (0–100) con un decimal para la visual. */
 export const formatPorcentajeDisplay = (porcentaje: number): string =>
-  porcentaje.toLocaleString('es-GT', {
+  porcentaje.toLocaleString("es-HN", {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   });

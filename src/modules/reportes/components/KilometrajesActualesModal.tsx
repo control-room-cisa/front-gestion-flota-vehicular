@@ -1,27 +1,27 @@
-import { useEffect, useState } from 'react';
-import * as XLSX from 'xlsx';
-import { Modal } from '../../../shared/components/Modal';
-import { tableScrollWrapClass } from '../../../shared/components/TableActionUi';
-import { useToast } from '../../../shared/components/ToastProvider';
-import { reportesService } from '../services/reportes.service';
-import type { KilometrajeActualUnidadDto } from '../types/reportes.types';
+import { useEffect, useState } from "react";
+import * as XLSX from "xlsx";
+import { Modal } from "../../../shared/components/Modal";
+import { tableScrollWrapClass } from "../../../shared/components/TableActionUi";
+import { useToast } from "../../../shared/components/ToastProvider";
+import { reportesService } from "../services/reportes.service";
+import type { KilometrajeActualUnidadDto } from "../types/reportes.types";
 
 const formatFecha = (iso: string): string =>
-  new Date(iso).toLocaleString('es-GT', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
+  new Date(iso).toLocaleString("es-HN", {
+    dateStyle: "medium",
+    timeStyle: "short",
   });
 
 /** "YYYY/MM/DD HH:mm" en TZ local. Usado en la exportación a Excel. */
 const formatFechaExcel = (iso: string): string => {
   const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
+  const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
 const hoyISO = (): string => {
   const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
+  const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
@@ -35,9 +35,7 @@ export const KilometrajesActualesModal = ({
   onClose,
 }: KilometrajesActualesModalProps) => {
   const toast = useToast();
-  const [unidades, setUnidades] = useState<KilometrajeActualUnidadDto[]>(
-    [],
-  );
+  const [unidades, setUnidades] = useState<KilometrajeActualUnidadDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [error, setError] = useState<string>();
@@ -58,7 +56,7 @@ export const KilometrajesActualesModal = ({
         setError(
           err instanceof Error
             ? err.message
-            : 'Error al cargar kilometrajes actuales',
+            : "Error al cargar kilometrajes actuales",
         );
       })
       .finally(() => {
@@ -72,7 +70,7 @@ export const KilometrajesActualesModal = ({
   const exportarExcel = () => {
     if (exportando || loading) return;
     if (unidades.length === 0) {
-      toast.info('No hay vehículos para exportar.', 'Sin resultados');
+      toast.info("No hay vehículos para exportar.", "Sin resultados");
       return;
     }
 
@@ -81,34 +79,29 @@ export const KilometrajesActualesModal = ({
       const filas = unidades.map((v) => ({
         Class: v.clase.toUpperCase(),
         Nombre: v.nombre,
-        Kilometraje: v.kilometraje ?? '',
-        Fecha: v.fecha ? formatFechaExcel(v.fecha) : '',
+        Kilometraje: v.kilometraje ?? "",
+        Fecha: v.fecha ? formatFechaExcel(v.fecha) : "",
       }));
 
       const ws = XLSX.utils.json_to_sheet(filas, {
-        header: ['Class', 'Nombre', 'Kilometraje', 'Fecha'],
+        header: ["Class", "Nombre", "Kilometraje", "Fecha"],
       });
-      ws['!cols'] = [
-        { wch: 12 },
-        { wch: 28 },
-        { wch: 14 },
-        { wch: 18 },
-      ];
+      ws["!cols"] = [{ wch: 12 }, { wch: 28 }, { wch: 14 }, { wch: 18 }];
 
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Kilometrajes actuales');
+      XLSX.utils.book_append_sheet(wb, ws, "Kilometrajes actuales");
       XLSX.writeFile(wb, `kilometrajes_actuales_${hoyISO()}.xlsx`);
 
       toast.success(
-        `Se exportaron ${unidades.length} vehículo${unidades.length === 1 ? '' : 's'}.`,
-        'Excel generado',
+        `Se exportaron ${unidades.length} vehículo${unidades.length === 1 ? "" : "s"}.`,
+        "Excel generado",
       );
     } catch (err) {
       const msg =
         err instanceof Error
           ? err.message
-          : 'Error al exportar kilometrajes actuales';
-      toast.error(msg, 'No se pudo generar el Excel');
+          : "Error al exportar kilometrajes actuales";
+      toast.error(msg, "No se pudo generar el Excel");
     } finally {
       setExportando(false);
     }
@@ -141,7 +134,7 @@ export const KilometrajesActualesModal = ({
               clipRule="evenodd"
             />
           </svg>
-          {exportando ? 'Generando…' : 'Descargar Excel'}
+          {exportando ? "Generando…" : "Descargar Excel"}
         </button>
       }
     >
@@ -193,7 +186,7 @@ export const KilometrajesActualesModal = ({
                 unidades.map((v) => (
                   <tr
                     key={v.unidadId}
-                    className={v.activo ? '' : 'bg-slate-50/60'}
+                    className={v.activo ? "" : "bg-slate-50/60"}
                   >
                     <td className="px-4 py-3 font-mono text-sm text-slate-800">
                       {v.clase.toUpperCase()}
@@ -208,11 +201,11 @@ export const KilometrajesActualesModal = ({
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-sm text-slate-800">
                       {v.kilometraje !== null
-                        ? v.kilometraje.toLocaleString('es-GT')
-                        : '—'}
+                        ? v.kilometraje.toLocaleString("es-HN")
+                        : "—"}
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-600">
-                      {v.fecha ? formatFecha(v.fecha) : '—'}
+                      {v.fecha ? formatFecha(v.fecha) : "—"}
                     </td>
                   </tr>
                 ))
