@@ -10,7 +10,7 @@ export interface DispensadoUsuarioDto {
   apellido: string;
 }
 
-export interface DispensadoVehiculoDto {
+export interface DispensadoUnidadDto {
   id: number;
   nombre: string;
   clase: string;
@@ -45,7 +45,7 @@ export interface DispensadoDto {
   createdAt: string;
   updatedAt: string;
   usuario: DispensadoUsuarioDto;
-  vehiculo: DispensadoVehiculoDto;
+  unidad: DispensadoUnidadDto;
   continuidad: ContinuidadDispensadoDto;
   canManage: boolean;
 }
@@ -55,7 +55,7 @@ export interface CreateDispensadoDto {
   kilometraje: number;
   cantidadGalones: number;
   precioGalon: number;
-  vehiculoId: number;
+  unidadId: number;
   observaciones?: string | null;
 }
 
@@ -64,14 +64,14 @@ export interface UpdateDispensadoDto {
   kilometraje?: number;
   cantidadGalones?: number;
   precioGalon?: number;
-  vehiculoId?: number;
+  unidadId?: number;
   observaciones?: string | null;
 }
 
 export interface DispensadoListQuery {
   desde?: string;
   hasta?: string;
-  vehiculoId?: number;
+  unidadId?: number;
   page?: number;
   pageSize?: number;
 }

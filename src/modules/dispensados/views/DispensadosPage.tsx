@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { useConfirm } from '../../../shared/components/ConfirmProvider';
 import { SearchableSelect } from '../../../shared/components/SearchableSelect';
 import { ApiError } from '../../../shared/http/api-client';
-import { vehiculoService } from '../../vehiculos/services/vehiculo.service';
-import type { VehiculoDto } from '../../vehiculos/types/vehiculo.types';
+import { unidadService } from '../../unidades/services/unidad.service';
+import type { UnidadDto } from '../../unidades/types/unidad.types';
 import { DispensadoForm } from '../components/DispensadoForm';
 import { dispensadoService } from '../services/dispensado.service';
 import type {
@@ -143,7 +143,7 @@ export const DispensadosPage = () => {
 
   const [dispensados, setDispensados] = useState<DispensadoDto[]>([]);
   const [total, setTotal] = useState(0);
-  const [vehiculos, setVehiculos] = useState<VehiculoDto[]>([]);
+  const [unidades, setUnidades] = useState<UnidadDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [modo, setModo] = useState<Modo>({ tipo: 'oculto' });
@@ -156,7 +156,7 @@ export const DispensadosPage = () => {
   // Filtros (defaults: última semana — hoy menos 6 días, ambos inclusive).
   const [desde, setDesde] = useState<string>(hacePocosDiasISO(6));
   const [hasta, setHasta] = useState<string>(hoyISO());
-  const [vehiculoFiltro, setVehiculoFiltro] = useState<VehiculoDto | null>(null);
+  const [unidadFiltro, setunidadFiltro] = useState<UnidadDto | null>(null);
   const [page, setPage] = useState(1);
 
   // Tooltip flotante para observaciones.
@@ -211,10 +211,10 @@ export const DispensadosPage = () => {
   // Catálogo de vehículos (una vez).
   useEffect(() => {
     let cancelled = false;
-    vehiculoService
+    unidadService
       .list()
       .then((vehs) => {
-        if (!cancelled) setVehiculos(vehs);
+        if (!cancelled) setUnidades(vehs);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -236,7 +236,7 @@ export const DispensadosPage = () => {
       const res = await dispensadoService.list({
         desde: desde ? inicioDelDiaISO(desde) : undefined,
         hasta: hasta ? finDelDiaISO(hasta) : undefined,
-        vehiculoId: vehiculoFiltro?.id,
+        unidadId: unidadFiltro?.id,
         page,
         pageSize: PAGE_SIZE,
       });
@@ -249,7 +249,7 @@ export const DispensadosPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [desde, hasta, vehiculoFiltro, page]);
+  }, [desde, hasta, unidadFiltro, page]);
 
   useEffect(() => {
     cargar();
@@ -258,7 +258,7 @@ export const DispensadosPage = () => {
   // Cualquier cambio de filtro nos manda a la página 1.
   useEffect(() => {
     setPage(1);
-  }, [desde, hasta, vehiculoFiltro]);
+  }, [desde, hasta, unidadFiltro]);
 
   const handleSubmit = async (
     data: CreateDispensadoDto | UpdateDispensadoDto,
@@ -296,9 +296,9 @@ export const DispensadosPage = () => {
   const desdeRegistro = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const hastaRegistro = Math.min(page * PAGE_SIZE, total);
 
-  const vehiculosFiltroOptions = useMemo(
-    () => vehiculos.filter((v) => v.activo),
-    [vehiculos],
+  const unidadesFiltroOptions = useMemo(
+    () => unidades.filter((v) => v.activo),
+    [unidades],
   );
 
   const fechasInvalidas = desde && hasta && desde > hasta;
@@ -345,10 +345,10 @@ export const DispensadosPage = () => {
             <label className="text-xs font-semibold text-slate-600">
               Vehículo
             </label>
-            <SearchableSelect<VehiculoDto>
-              options={vehiculosFiltroOptions}
-              value={vehiculoFiltro}
-              onChange={setVehiculoFiltro}
+            <SearchableSelect<UnidadDto>
+              options={unidadesFiltroOptions}
+              value={unidadFiltro}
+              onChange={setunidadFiltro}
               getKey={(v) => v.id}
               getLabel={(v) => v.nombre}
               getSubLabel={(v) => v.clase.toUpperCase()}
@@ -447,9 +447,9 @@ export const DispensadosPage = () => {
                         </div>
                       </td>
                       <td className="px-3 lg:px-4 py-3 text-sm text-slate-800">
-                        <div className="font-semibold">{d.vehiculo.nombre}</div>
+                        <div className="font-semibold">{d.unidad.nombre}</div>
                         <div className="text-xs font-mono uppercase text-slate-500">
-                          {d.vehiculo.clase}
+                          {d.unidad.clase}
                         </div>
                       </td>
                       <td
@@ -479,7 +479,12 @@ export const DispensadosPage = () => {
                       <td className="px-2 py-3 text-sm text-right font-mono text-slate-800 whitespace-nowrap">
                         {formatDecimal(d.precioGalon)}
                       </td>
-                      <td className="px-2 py-3 text-sm text-right font-mono text-emerald-700 font-semibold whitespace-nowrap">
+                      <td
+                        className={
+                          'px-2 py-3 text-sm text-right font-mono font-semibold whitespace-nowrap ' +
+                          (totalQ === 0 ? 'text-red-600' : 'text-emerald-700')
+                        }
+                      >
                         L {totalQ.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td
@@ -614,7 +619,7 @@ export const DispensadosPage = () => {
       <DispensadoForm
         open={modo.tipo !== 'oculto'}
         initial={modo.tipo === 'editar' ? modo.dispensado : null}
-        vehiculos={vehiculos}
+        unidades={unidades}
         onClose={() => setModo({ tipo: 'oculto' })}
         onSubmit={handleSubmit}
       />

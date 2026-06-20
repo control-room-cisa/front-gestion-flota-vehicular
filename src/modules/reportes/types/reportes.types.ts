@@ -13,7 +13,7 @@ export interface RendimientoCombustiblePunto {
 }
 
 export interface RendimientoCombustibleDto {
-  vehiculoId: number;
+  unidadId: number;
   puntos: RendimientoCombustiblePunto[];
 }
 
@@ -24,14 +24,14 @@ export interface KilometrosDiariosPunto {
 }
 
 export interface KilometrosDiariosDto {
-  vehiculoId: number;
+  unidadId: number;
   desde: string;
   hasta: string;
   puntos: KilometrosDiariosPunto[];
 }
 
-export interface KilometrajeActualVehiculoDto {
-  vehiculoId: number;
+export interface KilometrajeActualUnidadDto {
+  unidadId: number;
   nombre: string;
   clase: string;
   activo: boolean;
@@ -40,5 +40,5 @@ export interface KilometrajeActualVehiculoDto {
 }
 
 export interface KilometrajesActualesDto {
-  vehiculos: KilometrajeActualVehiculoDto[];
+  unidades: KilometrajeActualUnidadDto[];
 }

@@ -1,26 +1,35 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Modal } from '../../../shared/components/Modal';
-import { SearchableSelect } from '../../../shared/components/SearchableSelect';
-import { movilizacionService } from '../../movilizaciones/services/movilizacion.service';
-import type { UltimaMovilizacionVehiculoDto } from '../../movilizaciones/types/movilizacion.types';
-import type { VehiculoDto } from '../../vehiculos/types/vehiculo.types';
+import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../../../shared/auth/AuthContext";
+import { Modal } from "../../../shared/components/Modal";
+import { canEditDispensadoPrecio } from "../../../shared/types/roles.types";
+import { SearchableSelect } from "../../../shared/components/SearchableSelect";
+import {
+  parseDecimalInput,
+  parseIntegerInput,
+  sanitizeDecimalInput,
+  sanitizeIntegerInput,
+} from "../../../shared/utils/numeric-input";
+import { precioCombustibleService } from "../../combustible/services/precio-combustible.service";
+import { movilizacionService } from "../../movilizaciones/services/movilizacion.service";
+import type { UltimaMovilizacionUnidadDto } from "../../movilizaciones/types/movilizacion.types";
+import type { UnidadDto } from "../../unidades/types/unidad.types";
 import type {
   CreateDispensadoDto,
   DispensadoDto,
   UpdateDispensadoDto,
-} from '../types/dispensado.types';
+} from "../types/dispensado.types";
 
 export interface DispensadoFormProps {
   open: boolean;
   initial?: DispensadoDto | null;
-  vehiculos: VehiculoDto[];
+  unidades: UnidadDto[];
   onClose: () => void;
   onSubmit: (data: CreateDispensadoDto | UpdateDispensadoDto) => Promise<void>;
 }
 
 const toLocalInput = (iso?: string): string => {
   const d = iso ? new Date(iso) : new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
+  const pad = (n: number) => String(n).padStart(2, "0");
   return (
     `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
     `T${pad(d.getHours())}:${pad(d.getMinutes())}`
@@ -29,81 +38,111 @@ const toLocalInput = (iso?: string): string => {
 
 const fromLocalInput = (local: string): string => new Date(local).toISOString();
 
-/** Convierte el input string del usuario a número decimal (acepta coma o punto). */
-const parseDecimal = (raw: string): number | null => {
-  const norm = raw.trim().replace(',', '.');
-  if (norm === '') return null;
-  const n = Number(norm);
-  return Number.isFinite(n) ? n : null;
-};
-
 /** Formatea un monto en lempiras (HNL) con 2 decimales. */
 const formatLempiras = (n: number): string =>
-  n.toLocaleString('es-GT', {
+  n.toLocaleString("es-GT", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
 const formatFecha = (iso: string): string =>
-  new Date(iso).toLocaleString('es-GT', {
-    dateStyle: 'short',
-    timeStyle: 'short',
+  new Date(iso).toLocaleString("es-GT", {
+    dateStyle: "short",
+    timeStyle: "short",
   });
 
 export const DispensadoForm = ({
   open,
   initial,
-  vehiculos,
+  unidades,
   onClose,
   onSubmit,
 }: DispensadoFormProps) => {
+  const { usuario } = useAuth();
+  const puedeEditarPrecio = canEditDispensadoPrecio(usuario?.roles);
   const editing = Boolean(initial);
 
-  const [fecha, setFecha] = useState('');
-  const [vehiculo, setVehiculo] = useState<VehiculoDto | null>(null);
-  const [kilometraje, setKilometraje] = useState('');
-  const [cantidadGalones, setCantidadGalones] = useState('');
-  const [precioGalon, setPrecioGalon] = useState('');
-  const [observaciones, setObservaciones] = useState('');
+  const [fecha, setFecha] = useState("");
+  const [unidad, setUnidad] = useState<UnidadDto | null>(null);
+  const [kilometraje, setKilometraje] = useState("");
+  const [cantidadGalones, setCantidadGalones] = useState("");
+  const [precioGalon, setPrecioGalon] = useState("");
+  const [precioCargando, setPrecioCargando] = useState(false);
+  const [precioSinVigencia, setPrecioSinVigencia] = useState(false);
+  const [observaciones, setObservaciones] = useState("");
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
 
   // Última movilización registrada para el vehículo seleccionado, usada para
   // la alerta informativa de continuidad de kilometraje.
-  const [ultimaMov, setUltimaMov] = useState<UltimaMovilizacionVehiculoDto | null>(
-    null,
-  );
+  const [ultimaMov, setUltimaMov] =
+    useState<UltimaMovilizacionUnidadDto | null>(null);
   const [ultimaCargando, setUltimaCargando] = useState(false);
 
   // Catálogo de vehículos: solo activos. En edición conservamos el seleccionado
   // aunque haya quedado inactivo, para no perder el dato.
-  const vehiculosOptions = useMemo<VehiculoDto[]>(() => {
-    const activos = vehiculos.filter((v) => v.activo);
-    if (initial && !activos.some((v) => v.id === initial.vehiculo.id)) {
-      return [...activos, { ...initial.vehiculo, activo: false }];
+  const unidadesOptions = useMemo<UnidadDto[]>(() => {
+    const activos = unidades.filter((v) => v.activo);
+    if (initial && !activos.some((v) => v.id === initial.unidad.id)) {
+      return [...activos, { ...initial.unidad, activo: false } as UnidadDto];
     }
     return activos;
-  }, [vehiculos, initial]);
+  }, [unidades, initial]);
 
   useEffect(() => {
     if (!open) return;
 
     setFecha(toLocalInput(initial?.fecha));
-    setKilometraje(initial ? String(initial.kilometraje) : '');
-    setCantidadGalones(initial ? initial.cantidadGalones : '');
-    setPrecioGalon(initial ? initial.precioGalon : '');
-    setObservaciones(initial?.observaciones ?? '');
+    setKilometraje(initial ? String(initial.kilometraje) : "");
+    setCantidadGalones(initial ? initial.cantidadGalones : "");
+    setObservaciones(initial?.observaciones ?? "");
     setError(undefined);
     setUltimaMov(null);
+    setPrecioGalon("");
+    setPrecioSinVigencia(false);
 
     if (initial) {
-      setVehiculo(
-        vehiculosOptions.find((v) => v.id === initial.vehiculo.id) ?? null,
+      setUnidad(
+        unidadesOptions.find((v) => v.id === initial.unidad.id) ?? null,
       );
     } else {
-      setVehiculo(null);
+      setUnidad(null);
     }
-  }, [open, initial, vehiculosOptions]);
+  }, [open, initial, unidadesOptions]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const fechaDia = fecha.slice(0, 10);
+    if (!unidad || !/^\d{4}-\d{2}-\d{2}$/.test(fechaDia)) {
+      setPrecioCargando(false);
+      setPrecioSinVigencia(false);
+      if (!unidad) setPrecioGalon("");
+      return;
+    }
+
+    let cancelled = false;
+    setPrecioCargando(true);
+    setPrecioSinVigencia(false);
+    precioCombustibleService
+      .getVigente(fechaDia, unidad.tipoCombustible)
+      .then((precio) => {
+        if (!cancelled) setPrecioGalon(precio.precioGalon);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPrecioGalon("0");
+          setPrecioSinVigencia(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setPrecioCargando(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, fecha, unidad]);
 
   // Al cambiar el vehículo (SOLO en alta): traemos la última movilización
   // del vehículo para alimentar la alerta de continuidad de creación.
@@ -115,14 +154,14 @@ export const DispensadoForm = ({
       setUltimaMov(null);
       return;
     }
-    if (!vehiculo) {
+    if (!unidad) {
       setUltimaMov(null);
       return;
     }
     let cancelled = false;
     setUltimaCargando(true);
     movilizacionService
-      .lastByVehiculo(vehiculo.id)
+      .lastByUnidad(unidad.id)
       .then((res) => {
         if (!cancelled) setUltimaMov(res);
       })
@@ -135,10 +174,10 @@ export const DispensadoForm = ({
     return () => {
       cancelled = true;
     };
-  }, [open, editing, vehiculo]);
+  }, [open, editing, unidad]);
 
-  const cantidadNum = parseDecimal(cantidadGalones);
-  const precioNum = parseDecimal(precioGalon);
+  const cantidadNum = parseDecimalInput(cantidadGalones);
+  const precioNum = parseDecimalInput(precioGalon);
   const total =
     cantidadNum !== null && precioNum !== null && cantidadNum > 0
       ? cantidadNum * precioNum
@@ -152,23 +191,21 @@ export const DispensadoForm = ({
   //  - Edición: compara contra las movilizaciones que rodean al dispensado
   //             (prev/next por fecha) — misma lógica que evalúa la tabla.
   // ---------------------------------------------------------------------------
-  const kmNum = kilometraje === '' ? null : Number(kilometraje);
+  const kmNum = parseIntegerInput(kilometraje);
 
   const continuidadCreacionAlerta =
     !editing &&
     ultimaMov !== null &&
     kmNum !== null &&
-    Number.isFinite(kmNum) &&
     kmNum !== ultimaMov.kilometrajeFinal;
 
   // En edición usamos la continuidad calculada por el backend. La re-evaluamos
   // contra el valor LIVE del input para que, si el usuario corrige el
   // kilometraje a uno consistente, la alerta desaparezca de inmediato.
-  const continuidadEdicion = editing ? initial?.continuidad ?? null : null;
+  const continuidadEdicion = editing ? (initial?.continuidad ?? null) : null;
   const continuidadEdicionAlerta =
     continuidadEdicion !== null &&
     kmNum !== null &&
-    Number.isFinite(kmNum) &&
     ((continuidadEdicion.prevKmFinal !== null &&
       continuidadEdicion.prevKmFinal !== kmNum) ||
       (continuidadEdicion.nextKmInicial !== null &&
@@ -178,29 +215,33 @@ export const DispensadoForm = ({
     e.preventDefault();
     setError(undefined);
 
-    if (!vehiculo) {
-      setError('Selecciona un vehículo');
+    if (!unidad) {
+      setError("Selecciona un vehículo");
       return;
     }
 
-    const km = Number(kilometraje);
-    if (!Number.isInteger(km) || km < 0) {
-      setError('El kilometraje debe ser un número entero positivo');
+    const km = parseIntegerInput(kilometraje);
+    if (km === null || km < 0) {
+      setError("El kilometraje debe ser un número entero positivo");
       return;
     }
 
     if (cantidadNum === null || cantidadNum <= 0) {
-      setError('La cantidad de galones debe ser mayor a 0');
+      setError("La cantidad de galones debe ser mayor a 0");
+      return;
+    }
+    if (precioCargando) {
+      setError("Espera a que se cargue el precio de combustible");
       return;
     }
     if (precioNum === null || precioNum < 0) {
-      setError('El precio por galón es inválido');
+      setError("El precio por galón es inválido");
       return;
     }
 
     const obsTrim = observaciones.trim();
     if (obsTrim.length > 500) {
-      setError('Las observaciones no pueden exceder 500 caracteres');
+      setError("Las observaciones no pueden exceder 500 caracteres");
       return;
     }
 
@@ -211,24 +252,28 @@ export const DispensadoForm = ({
         kilometraje: km,
         cantidadGalones: cantidadNum,
         precioGalon: precioNum,
-        vehiculoId: vehiculo.id,
+        unidadId: unidad.id,
         observaciones: obsTrim.length > 0 ? obsTrim : null,
       };
       await onSubmit(payload);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar');
+      setError(err instanceof Error ? err.message : "Error al guardar");
     } finally {
       setSubmitting(false);
     }
   };
 
   const totalInputClass =
-    'px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 cursor-not-allowed font-mono';
+    "px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 cursor-not-allowed font-mono";
+
+  const precioInputClass = puedeEditarPrecio
+    ? "px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono"
+    : `${totalInputClass} outline-none`;
 
   return (
     <Modal
       open={open}
-      title={editing ? 'Editar dispensado' : 'Nuevo dispensado'}
+      title={editing ? "Editar dispensado" : "Nuevo dispensado"}
       subtitle="Carga de combustible"
       size="lg"
       busy={submitting}
@@ -241,7 +286,7 @@ export const DispensadoForm = ({
           disabled={submitting}
           className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-70"
         >
-          {submitting ? 'Guardando...' : editing ? 'Actualizar' : 'Registrar'}
+          {submitting ? "Guardando..." : editing ? "Actualizar" : "Registrar"}
         </button>
       }
     >
@@ -254,11 +299,13 @@ export const DispensadoForm = ({
 
         {/* Vehículo */}
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-semibold text-slate-700">Vehículo</label>
-          <SearchableSelect<VehiculoDto>
-            options={vehiculosOptions}
-            value={vehiculo}
-            onChange={setVehiculo}
+          <label className="text-sm font-semibold text-slate-700">
+            Vehículo
+          </label>
+          <SearchableSelect<UnidadDto>
+            options={unidadesOptions}
+            value={unidad}
+            onChange={setUnidad}
             getKey={(v) => v.id}
             getLabel={(v) => v.nombre}
             getSubLabel={(v) =>
@@ -281,12 +328,12 @@ export const DispensadoForm = ({
               Kilometraje
             </label>
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              step={1}
-              min={0}
               value={kilometraje}
-              onChange={(e) => setKilometraje(e.target.value)}
+              onChange={(e) =>
+                setKilometraje(sanitizeIntegerInput(e.target.value))
+              }
               required
               className="px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono"
             />
@@ -311,16 +358,16 @@ export const DispensadoForm = ({
           movilización registrada del vehículo.
         */}
         {!editing &&
-          vehiculo &&
+          unidad &&
           !ultimaCargando &&
           continuidadCreacionAlerta &&
           ultimaMov && (
             <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-sm">
               <strong className="font-semibold">Aviso:</strong> el kilometraje
-              final de la última movilización es{' '}
+              final de la última movilización es{" "}
               <span className="font-mono font-semibold">
-                {ultimaMov.kilometrajeFinal.toLocaleString('es-GT')}
-              </span>{' '}
+                {ultimaMov.kilometrajeFinal.toLocaleString("es-GT")}
+              </span>{" "}
               ({formatFecha(ultimaMov.fecha)}) y debe ser igual al actual.
               Asegúrese de ingresar el kilometraje correcto o reporte el caso
               con logística.
@@ -343,25 +390,25 @@ export const DispensadoForm = ({
             {continuidadEdicion.prevKmFinal !== null &&
               continuidadEdicion.prevKmFinal !== kmNum && (
                 <div className="pl-3">
-                  • Movilización anterior — km final{' '}
+                  • Movilización anterior — km final{" "}
                   <span className="font-mono font-semibold">
-                    {continuidadEdicion.prevKmFinal.toLocaleString('es-GT')}
+                    {continuidadEdicion.prevKmFinal.toLocaleString("es-GT")}
                   </span>
                   {continuidadEdicion.prevFecha
                     ? ` (${formatFecha(continuidadEdicion.prevFecha)})`
-                    : ''}
+                    : ""}
                 </div>
               )}
             {continuidadEdicion.nextKmInicial !== null &&
               continuidadEdicion.nextKmInicial !== kmNum && (
                 <div className="pl-3">
-                  • Movilización siguiente — km inicial{' '}
+                  • Movilización siguiente — km inicial{" "}
                   <span className="font-mono font-semibold">
-                    {continuidadEdicion.nextKmInicial.toLocaleString('es-GT')}
+                    {continuidadEdicion.nextKmInicial.toLocaleString("es-GT")}
                   </span>
                   {continuidadEdicion.nextFecha
                     ? ` (${formatFecha(continuidadEdicion.nextFecha)})`
-                    : ''}
+                    : ""}
                 </div>
               )}
           </div>
@@ -374,12 +421,12 @@ export const DispensadoForm = ({
               Cantidad (galones)
             </label>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
-              step="0.01"
-              min={0}
               value={cantidadGalones}
-              onChange={(e) => setCantidadGalones(e.target.value)}
+              onChange={(e) =>
+                setCantidadGalones(sanitizeDecimalInput(e.target.value))
+              }
               required
               className="px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono"
             />
@@ -389,21 +436,31 @@ export const DispensadoForm = ({
               Precio por galón
             </label>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
-              step="0.01"
-              min={0}
-              value={precioGalon}
-              onChange={(e) => setPrecioGalon(e.target.value)}
+              value={precioCargando ? "Cargando…" : precioGalon}
+              onChange={(e) =>
+                setPrecioGalon(sanitizeDecimalInput(e.target.value))
+              }
+              readOnly={!puedeEditarPrecio || precioCargando}
               required
-              className="px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono"
+              className={precioInputClass}
             />
+            {precioSinVigencia && unidad && !precioCargando && (
+              <span className="text-xs text-amber-700">
+                No hay precio vigente para esta fecha y tipo de combustible (
+                {unidad.tipoCombustible === "DIESEL" ? "diesel" : "gasolina"}
+                ); se registrará con precio L 0.00.
+              </span>
+            )}
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-semibold text-slate-700">Total</label>
+            <label className="text-sm font-semibold text-slate-700">
+              Total
+            </label>
             <input
               type="text"
-              value={total !== null ? `L ${formatLempiras(total)}` : ''}
+              value={total !== null ? `L ${formatLempiras(total)}` : ""}
               readOnly
               tabIndex={-1}
               placeholder="—"
@@ -415,7 +472,10 @@ export const DispensadoForm = ({
         {/* Observaciones (opcional) */}
         <div className="flex flex-col gap-1">
           <label className="text-sm font-semibold text-slate-700">
-            Observaciones <span className="text-xs font-normal text-slate-500">(opcional)</span>
+            Observaciones{" "}
+            <span className="text-xs font-normal text-slate-500">
+              (opcional)
+            </span>
           </label>
           <textarea
             value={observaciones}

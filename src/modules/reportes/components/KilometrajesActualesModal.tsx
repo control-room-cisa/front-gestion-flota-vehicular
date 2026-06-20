@@ -4,7 +4,7 @@ import { Modal } from '../../../shared/components/Modal';
 import { tableScrollWrapClass } from '../../../shared/components/TableActionUi';
 import { useToast } from '../../../shared/components/ToastProvider';
 import { reportesService } from '../services/reportes.service';
-import type { KilometrajeActualVehiculoDto } from '../types/reportes.types';
+import type { KilometrajeActualUnidadDto } from '../types/reportes.types';
 
 const formatFecha = (iso: string): string =>
   new Date(iso).toLocaleString('es-GT', {
@@ -35,7 +35,7 @@ export const KilometrajesActualesModal = ({
   onClose,
 }: KilometrajesActualesModalProps) => {
   const toast = useToast();
-  const [vehiculos, setVehiculos] = useState<KilometrajeActualVehiculoDto[]>(
+  const [unidades, setUnidades] = useState<KilometrajeActualUnidadDto[]>(
     [],
   );
   const [loading, setLoading] = useState(false);
@@ -51,7 +51,7 @@ export const KilometrajesActualesModal = ({
       .kilometrajesActuales()
       .then((res) => {
         if (cancelled) return;
-        setVehiculos(res.vehiculos);
+        setUnidades(res.unidades);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -71,14 +71,14 @@ export const KilometrajesActualesModal = ({
 
   const exportarExcel = () => {
     if (exportando || loading) return;
-    if (vehiculos.length === 0) {
+    if (unidades.length === 0) {
       toast.info('No hay vehículos para exportar.', 'Sin resultados');
       return;
     }
 
     setExportando(true);
     try {
-      const filas = vehiculos.map((v) => ({
+      const filas = unidades.map((v) => ({
         Class: v.clase.toUpperCase(),
         Nombre: v.nombre,
         Kilometraje: v.kilometraje ?? '',
@@ -100,7 +100,7 @@ export const KilometrajesActualesModal = ({
       XLSX.writeFile(wb, `kilometrajes_actuales_${hoyISO()}.xlsx`);
 
       toast.success(
-        `Se exportaron ${vehiculos.length} vehículo${vehiculos.length === 1 ? '' : 's'}.`,
+        `Se exportaron ${unidades.length} vehículo${unidades.length === 1 ? '' : 's'}.`,
         'Excel generado',
       );
     } catch (err) {
@@ -126,7 +126,7 @@ export const KilometrajesActualesModal = ({
         <button
           type="button"
           onClick={exportarExcel}
-          disabled={loading || exportando || vehiculos.length === 0}
+          disabled={loading || exportando || unidades.length === 0}
           className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg
@@ -180,7 +180,7 @@ export const KilometrajesActualesModal = ({
                     Cargando...
                   </td>
                 </tr>
-              ) : vehiculos.length === 0 ? (
+              ) : unidades.length === 0 ? (
                 <tr>
                   <td
                     colSpan={4}
@@ -190,9 +190,9 @@ export const KilometrajesActualesModal = ({
                   </td>
                 </tr>
               ) : (
-                vehiculos.map((v) => (
+                unidades.map((v) => (
                   <tr
-                    key={v.vehiculoId}
+                    key={v.unidadId}
                     className={v.activo ? '' : 'bg-slate-50/60'}
                   >
                     <td className="px-4 py-3 font-mono text-sm text-slate-800">

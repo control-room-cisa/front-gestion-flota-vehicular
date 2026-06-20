@@ -1,6 +1,6 @@
 import type { MovilizacionDto } from '../types/movilizacion.types';
 
-export type MovilizacionGroupBy = 'none' | 'usuario' | 'vehiculo' | 'empresa';
+export type MovilizacionGroupBy = 'none' | 'usuario' | 'unidad' | 'empresa';
 
 export type MovilizacionTableRow =
   | { kind: 'group'; id: string; label: string; count: number }
@@ -41,10 +41,10 @@ export const buildGroupedTableRows = (
         `${m.usuario.nombre} ${m.usuario.apellido}`.trim(),
         m,
       );
-    } else if (groupBy === 'vehiculo') {
+    } else if (groupBy === 'unidad') {
       add(
-        String(m.vehiculo.id),
-        `${m.vehiculo.nombre} · ${m.vehiculo.clase.toUpperCase()}`,
+        String(m.unidad.id),
+        `${m.unidad.nombre} · ${m.unidad.clase.toUpperCase()}`,
         m,
       );
     } else if (groupBy === 'empresa') {

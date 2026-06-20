@@ -12,8 +12,8 @@ import {
   YAxis,
 } from 'recharts';
 import { SearchableSelect } from '../../../shared/components/SearchableSelect';
-import { vehiculoService } from '../../vehiculos/services/vehiculo.service';
-import type { VehiculoDto } from '../../vehiculos/types/vehiculo.types';
+import { unidadService } from '../../unidades/services/unidad.service';
+import type { UnidadDto } from '../../unidades/types/unidad.types';
 import { KilometrajesActualesModal } from '../components/KilometrajesActualesModal';
 import { reportesService } from '../services/reportes.service';
 import type {
@@ -146,8 +146,8 @@ const KmTooltip = ({
 };
 
 export const ReportesPage = () => {
-  const [vehiculos, setVehiculos] = useState<VehiculoDto[]>([]);
-  const [vehiculo, setVehiculo] = useState<VehiculoDto | null>(null);
+  const [unidades, setUnidades] = useState<UnidadDto[]>([]);
+  const [unidad, setUnidad] = useState<UnidadDto | null>(null);
   const [rendimiento, setRendimiento] =
     useState<RendimientoCombustibleDto | null>(null);
   const [kmDiarios, setKmDiarios] = useState<KilometrosDiariosDto | null>(
@@ -155,24 +155,24 @@ export const ReportesPage = () => {
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
-  const [errorVehiculos, setErrorVehiculos] = useState<string>();
+  const [errorUnidades, seterrorUnidades] = useState<string>();
   const [kmActualesOpen, setKmActualesOpen] = useState(false);
 
   // Catálogo de vehículos (una vez al montar).
   useEffect(() => {
     let cancelled = false;
-    vehiculoService
+    unidadService
       .list()
       .then((vehs) => {
         if (cancelled) return;
-        setVehiculos(vehs);
+        setUnidades(vehs);
         // Auto-selección del primero activo para que la página no aparezca vacía.
         const primero = vehs.find((v) => v.activo) ?? vehs[0] ?? null;
-        setVehiculo(primero);
+        setUnidad(primero);
       })
       .catch((err) => {
         if (cancelled) return;
-        setErrorVehiculos(
+        seterrorUnidades(
           err instanceof Error ? err.message : 'Error al cargar vehículos',
         );
       });
@@ -181,14 +181,14 @@ export const ReportesPage = () => {
     };
   }, []);
 
-  const vehiculosOptions = useMemo(
-    () => vehiculos.filter((v) => v.activo || v.id === vehiculo?.id),
-    [vehiculos, vehiculo],
+  const unidadesOptions = useMemo(
+    () => unidades.filter((v) => v.activo || v.id === unidad?.id),
+    [unidades, unidad],
   );
 
   // Cargamos ambos reportes cuando el vehículo cambia.
   useEffect(() => {
-    if (!vehiculo) {
+    if (!unidad) {
       setRendimiento(null);
       setKmDiarios(null);
       return;
@@ -197,8 +197,8 @@ export const ReportesPage = () => {
     setLoading(true);
     setError(undefined);
     Promise.all([
-      reportesService.rendimientoCombustible(vehiculo.id),
-      reportesService.kilometrosDiarios({ vehiculoId: vehiculo.id }),
+      reportesService.rendimientoCombustible(unidad.id),
+      reportesService.kilometrosDiarios({ unidadId: unidad.id }),
     ])
       .then(([rend, km]) => {
         if (cancelled) return;
@@ -215,7 +215,7 @@ export const ReportesPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [vehiculo]);
+  }, [unidad]);
 
   const rendData = useMemo(
     () => buildRendimientoData(rendimiento),
@@ -256,10 +256,10 @@ export const ReportesPage = () => {
             <label className="text-xs font-semibold text-slate-600">
               Vehículo
             </label>
-            <SearchableSelect<VehiculoDto>
-              options={vehiculosOptions}
-              value={vehiculo}
-              onChange={setVehiculo}
+            <SearchableSelect<UnidadDto>
+              options={unidadesOptions}
+              value={unidad}
+              onChange={setUnidad}
               getKey={(v) => v.id}
               getLabel={(v) => v.nombre}
               getSubLabel={(v) =>
@@ -278,9 +278,9 @@ export const ReportesPage = () => {
           </div>
         </div>
 
-        {errorVehiculos && (
+        {errorUnidades && (
           <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-sm">
-            {errorVehiculos}
+            {errorUnidades}
           </div>
         )}
         {error && (

@@ -14,8 +14,9 @@ import { empresaService } from '../../empresas/services/empresa.service';
 import type { EmpresaDto } from '../../empresas/types/empresa.types';
 import { usuariosService } from '../../usuarios/services/usuario.service';
 import type { UsuarioListadoDto } from '../../usuarios/types/usuario.types';
-import { vehiculoService } from '../../vehiculos/services/vehiculo.service';
-import type { VehiculoDto } from '../../vehiculos/types/vehiculo.types';
+import { unidadService } from '../../unidades/services/unidad.service';
+import { CATEGORIA_CODIGO_VEHICULOS_LIVIANOS } from '../../categorias/types/categoria.types';
+import type { UnidadDto } from '../../unidades/types/unidad.types';
 import { MovilizacionDetalleModal } from '../components/MovilizacionDetalleModal';
 import { MovilizacionForm } from '../components/MovilizacionForm';
 import { movilizacionService } from '../services/movilizacion.service';
@@ -41,16 +42,16 @@ const PAGE_SIZE = 20;
  * Usa `id = 0` (los ids reales del catálogo son siempre positivos),
  * de forma que se distingue trivialmente sin necesidad de un tipo
  * extendido. Cuando se selecciona, el filtro se considera vacío y
- * el backend recibe `vehiculoId = undefined`.
+ * el backend recibe `unidadId = undefined`.
  */
-const VEHICULO_FILTRO_TODOS: VehiculoDto = {
+const UNIDAD_FILTRO_TODOS = {
   id: 0,
-  nombre: 'Todos los vehículos',
+  nombre: 'Todas las unidades',
   clase: '',
   activo: true,
-};
+} as UnidadDto;
 
-const esTodos = (v: VehiculoDto | null): boolean => v?.id === 0;
+const esTodos = (v: UnidadDto | null): boolean => v?.id === 0;
 
 const USUARIO_FILTRO_TODOS: UsuarioListadoDto = {
   id: 0,
@@ -65,7 +66,7 @@ const esTodosUsuario = (u: UsuarioListadoDto | null): boolean => u?.id === 0;
 interface GapInfo {
   fromKm: number;
   toKm: number;
-  vehiculo: { nombre: string; clase: string };
+  unidad: { nombre: string; clase: string };
 }
 
 interface RowDecoration {
@@ -187,7 +188,7 @@ export const MovilizacionesPage = () => {
   const [movilizaciones, setMovilizaciones] = useState<MovilizacionDto[]>([]);
   const [total, setTotal] = useState(0);
   const [empresas, setEmpresas] = useState<EmpresaDto[]>([]);
-  const [vehiculos, setVehiculos] = useState<VehiculoDto[]>([]);
+  const [unidades, setUnidades] = useState<UnidadDto[]>([]);
   const [usuarios, setUsuarios] = useState<UsuarioListadoDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
@@ -204,7 +205,7 @@ export const MovilizacionesPage = () => {
   // Filtros (defaults: hoy a hoy).
   const [desde, setDesde] = useState<string>(hoyISO());
   const [hasta, setHasta] = useState<string>(hoyISO());
-  const [vehiculoFiltro, setVehiculoFiltro] = useState<VehiculoDto | null>(null);
+  const [unidadFiltro, setunidadFiltro] = useState<UnidadDto | null>(null);
   const [usuarioFiltro, setUsuarioFiltro] = useState<UsuarioListadoDto | null>(
     null,
   );
@@ -270,7 +271,7 @@ export const MovilizacionesPage = () => {
     let cancelled = false;
     Promise.all([
       empresaService.list(),
-      vehiculoService.list(),
+      unidadService.list({ categoriaCodigo: CATEGORIA_CODIGO_VEHICULOS_LIVIANOS }),
       isManager
         ? usuariosService.list()
         : Promise.resolve<UsuarioListadoDto[]>([]),
@@ -278,7 +279,7 @@ export const MovilizacionesPage = () => {
       .then(([emps, vehs, usrs]) => {
         if (cancelled) return;
         setEmpresas(emps);
-        setVehiculos(vehs);
+        setUnidades(vehs);
         setUsuarios(usrs);
       })
       .catch((err) => {
@@ -291,8 +292,8 @@ export const MovilizacionesPage = () => {
   }, [isManager]);
 
   const listQueryBase = useCallback(() => {
-    const vehiculoIdFiltro =
-      vehiculoFiltro && !esTodos(vehiculoFiltro) ? vehiculoFiltro.id : undefined;
+    const unidadIdFiltro =
+      unidadFiltro && !esTodos(unidadFiltro) ? unidadFiltro.id : undefined;
     let userIdFiltro: number | undefined;
     if (isManager && usuarioFiltro && !esTodosUsuario(usuarioFiltro)) {
       userIdFiltro = usuarioFiltro.id;
@@ -302,13 +303,13 @@ export const MovilizacionesPage = () => {
     return {
       desde: desde ? inicioDelDiaISO(desde) : undefined,
       hasta: hasta ? finDelDiaISO(hasta) : undefined,
-      vehiculoId: vehiculoIdFiltro,
+      unidadId: unidadIdFiltro,
       userId: userIdFiltro,
     };
   }, [
     desde,
     hasta,
-    vehiculoFiltro,
+    unidadFiltro,
     usuarioFiltro,
     isManager,
     soloMisMovilizaciones,
@@ -368,7 +369,7 @@ export const MovilizacionesPage = () => {
   // en una página fuera de rango.
   useEffect(() => {
     setPage(1);
-  }, [desde, hasta, vehiculoFiltro, usuarioFiltro, groupBy, soloMisMovilizaciones]);
+  }, [desde, hasta, unidadFiltro, usuarioFiltro, groupBy, soloMisMovilizaciones]);
 
   useEffect(() => {
     if (!isManager && groupBy !== 'none') {
@@ -430,7 +431,7 @@ export const MovilizacionesPage = () => {
 
       const filas = todos.map((m) => ({
         'Fecha y hora': formatFechaExcel(m.fecha),
-        Vehículo: m.vehiculo.nombre,
+        Vehículo: m.unidad.nombre,
         Usuario: `${m.usuario.nombre} ${m.usuario.apellido}`.trim(),
         Inicio: m.kilometrajeInicial,
         Fin: m.kilometrajeFinal,
@@ -534,9 +535,9 @@ export const MovilizacionesPage = () => {
   // Opciones del filtro: el sentinel "Todos los vehículos" siempre va
   // al inicio para que se pueda elegir explícitamente desde el listado,
   // incluso después de haber seleccionado un vehículo individual.
-  const vehiculosFiltroOptions = useMemo(
-    () => [VEHICULO_FILTRO_TODOS, ...vehiculos.filter((v) => v.activo)],
-    [vehiculos],
+  const unidadesFiltroOptions = useMemo(
+    () => [UNIDAD_FILTRO_TODOS, ...unidades.filter((v) => v.activo)],
+    [unidades],
   );
 
   const usuariosFiltroOptions = useMemo(() => {
@@ -582,9 +583,9 @@ export const MovilizacionesPage = () => {
     // Agrupa por vehículo: traslapes y gaps sólo aplican dentro del mismo.
     const groups = new Map<number, MovilizacionDto[]>();
     for (const m of movilizaciones) {
-      const arr = groups.get(m.vehiculo.id) ?? [];
+      const arr = groups.get(m.unidad.id) ?? [];
       arr.push(m);
-      groups.set(m.vehiculo.id, arr);
+      groups.set(m.unidad.id, arr);
     }
 
     // Recorrido único por vehículo en orden fecha ascendente. Para cada par
@@ -610,7 +611,7 @@ export const MovilizacionesPage = () => {
           ensure(cur.id).gapAfter = {
             fromKm: prev.kilometrajeFinal,
             toKm: cur.kilometrajeInicial,
-            vehiculo: { nombre: cur.vehiculo.nombre, clase: cur.vehiculo.clase },
+            unidad: { nombre: cur.unidad.nombre, clase: cur.unidad.clase },
           };
         }
       }
@@ -758,11 +759,11 @@ export const MovilizacionesPage = () => {
             <label className="text-xs font-semibold text-slate-600">
               Vehículo
             </label>
-            <SearchableSelect<VehiculoDto>
-              options={vehiculosFiltroOptions}
-              value={vehiculoFiltro ?? VEHICULO_FILTRO_TODOS}
+            <SearchableSelect<UnidadDto>
+              options={unidadesFiltroOptions}
+              value={unidadFiltro ?? UNIDAD_FILTRO_TODOS}
               onChange={(v) =>
-                setVehiculoFiltro(v && !esTodos(v) ? v : null)
+                setunidadFiltro(v && !esTodos(v) ? v : null)
               }
               getKey={(v) => v.id}
               getLabel={(v) => v.nombre}
@@ -770,7 +771,7 @@ export const MovilizacionesPage = () => {
                 esTodos(v) ? undefined : v.clase.toUpperCase()
               }
               getSearchText={(v) =>
-                esTodos(v) ? 'todos los vehiculos' : `${v.nombre} ${v.clase}`
+                esTodos(v) ? 'todos los unidades' : `${v.nombre} ${v.clase}`
               }
               renderOption={(v, { active, selected }) => {
                 if (esTodos(v)) {
@@ -843,7 +844,7 @@ export const MovilizacionesPage = () => {
               >
                 <option value="none">Sin agrupar</option>
                 <option value="usuario">Usuario</option>
-                <option value="vehiculo">Vehículo</option>
+                <option value="unidad">Vehículo</option>
                 <option value="empresa">Empresa</option>
               </select>
             </div>
@@ -981,9 +982,9 @@ export const MovilizacionesPage = () => {
                           </div>
                         </td>
                         <td className="px-3 lg:px-4 py-3 text-sm text-slate-800">
-                          <div className="font-semibold">{m.vehiculo.nombre}</div>
+                          <div className="font-semibold">{m.unidad.nombre}</div>
                           <div className="text-xs font-mono uppercase text-slate-500">
-                            {m.vehiculo.clase}
+                            {m.unidad.clase}
                           </div>
                         </td>
                         <td className={kmCellClass(overlapInicial)}>
@@ -1144,9 +1145,9 @@ export const MovilizacionesPage = () => {
                                 <span className="font-mono font-semibold">
                                   {gap.toKm.toLocaleString('es-GT')}
                                 </span>{' '}
-                                para <strong>{gap.vehiculo.nombre}</strong>{' '}
+                                para <strong>{gap.unidad.nombre}</strong>{' '}
                                 <span className="font-mono uppercase opacity-70">
-                                  ({gap.vehiculo.clase})
+                                  ({gap.unidad.clase})
                                 </span>
                               </span>
                             </div>
@@ -1201,7 +1202,7 @@ export const MovilizacionesPage = () => {
         open={modo.tipo !== 'oculto'}
         initial={modo.tipo === 'editar' ? modo.movilizacion : null}
         empresas={empresas}
-        vehiculos={vehiculos}
+        unidades={unidades}
         usuarios={usuarios}
         onClose={() => setModo({ tipo: 'oculto' })}
         onSubmit={handleSubmit}

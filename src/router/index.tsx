@@ -5,15 +5,17 @@ import { EmpresasPage } from '../modules/empresas/views/EmpresasPage';
 import { MovilizacionesPage } from '../modules/movilizaciones/views/MovilizacionesPage';
 import { ReportesPage } from '../modules/reportes/views/ReportesPage';
 import { UsuariosPage } from '../modules/usuarios/views/UsuariosPage';
-import { VehiculosPage } from '../modules/vehiculos/views/VehiculosPage';
+import { CategoriasPage } from '../modules/categorias/views/CategoriasPage';
+import { UnidadesPage } from '../modules/unidades/views/UnidadesPage';
+import { CombustiblePage } from '../modules/combustible/views/CombustiblePage';
+import { ConfiguracionesPage } from '../modules/configuraciones/views/ConfiguracionesPage';
 import {
   ProtectedRoute,
   PublicOnlyRoute,
 } from '../shared/auth/route-guards';
-import { REPORTES_ACCESS_ROLES } from '../shared/types/roles.types';
+import { REPORTES_ACCESS_ROLES, DISPENSADO_MANAGER_ROLES } from '../shared/types/roles.types';
 import { AppLayout } from '../shared/components/AppLayout';
 import type { AppRouteHandle } from '../shared/components/AppLayout';
-import { RoleHomeView } from '../shared/components/RoleHomeView';
 
 const h = (handle: AppRouteHandle): { handle: AppRouteHandle } => ({ handle });
 
@@ -37,18 +39,6 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      {
-        path: '/admin',
-        element: (
-          <ProtectedRoute allowed={['admin']}>
-            <RoleHomeView
-              title="Panel de Administración"
-              rol="admin"
-            />
-          </ProtectedRoute>
-        ),
-        ...h({ title: 'Administración', subtitle: 'Panel admin' }),
-      },
       {
         path: '/usuarios',
         element: (
@@ -77,22 +67,22 @@ export const router = createBrowserRouter([
         ...h({ title: 'Reportes', subtitle: 'Rendimiento y operación' }),
       },
       {
-        path: '/vehiculos',
+        path: '/unidades',
         element: (
           <ProtectedRoute allowed={['logistica', 'admin']}>
-            <VehiculosPage />
+            <UnidadesPage />
           </ProtectedRoute>
         ),
-        ...h({ title: 'Vehículos', subtitle: 'Logística' }),
+        ...h({ title: 'Unidades', subtitle: 'Logística' }),
       },
       {
-        path: '/monitoreo',
+        path: '/categorias',
         element: (
-          <ProtectedRoute allowed={['controlroom', 'admin']}>
-            <RoleHomeView title="Sala de Control" rol="controlroom" />
+          <ProtectedRoute allowed={['logistica', 'admin']}>
+            <CategoriasPage />
           </ProtectedRoute>
         ),
-        ...h({ title: 'Monitoreo', subtitle: 'Sala de control' }),
+        ...h({ title: 'Categorías', subtitle: 'Logística' }),
       },
       {
         path: '/movilizaciones',
@@ -103,6 +93,24 @@ export const router = createBrowserRouter([
         path: '/dispensados',
         element: <DispensadosPage />,
         ...h({ title: 'Dispensados', subtitle: 'Carga de combustible' }),
+      },
+      {
+        path: '/combustible',
+        element: (
+          <ProtectedRoute allowed={DISPENSADO_MANAGER_ROLES}>
+            <CombustiblePage />
+          </ProtectedRoute>
+        ),
+        ...h({ title: 'Combustible', subtitle: 'Tanque diesel' }),
+      },
+      {
+        path: '/configuraciones',
+        element: (
+          <ProtectedRoute allowed={DISPENSADO_MANAGER_ROLES}>
+            <ConfiguracionesPage />
+          </ProtectedRoute>
+        ),
+        ...h({ title: 'Configuraciones', subtitle: 'Variables del sistema' }),
       },
     ],
   },

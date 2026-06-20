@@ -4,16 +4,20 @@ import { Modal } from '../../../shared/components/Modal';
 import { SearchableSelect } from '../../../shared/components/SearchableSelect';
 import { useToast } from '../../../shared/components/ToastProvider';
 import { ApiError } from '../../../shared/http/api-client';
+import {
+  parseIntegerInput,
+  sanitizeIntegerInput,
+} from '../../../shared/utils/numeric-input';
 import { isMovilizacionManager } from '../../../shared/types/roles.types';
 import type { ApiErrorDetail } from '../../../shared/types/api.types';
 import type { EmpresaDto } from '../../empresas/types/empresa.types';
 import type { UsuarioListadoDto } from '../../usuarios/types/usuario.types';
-import type { VehiculoDto } from '../../vehiculos/types/vehiculo.types';
+import type { UnidadDto } from '../../unidades/types/unidad.types';
 import { movilizacionService } from '../services/movilizacion.service';
 import type {
   CreateMovilizacionDto,
   MovilizacionDto,
-  UltimaMovilizacionVehiculoDto,
+  UltimaMovilizacionUnidadDto,
   UpdateMovilizacionDto,
 } from '../types/movilizacion.types';
 
@@ -21,7 +25,7 @@ export interface MovilizacionFormProps {
   open: boolean;
   initial?: MovilizacionDto | null;
   empresas: EmpresaDto[];
-  vehiculos: VehiculoDto[];
+  unidades: UnidadDto[];
   /**
    * Catálogo de usuarios para el selector de "dueño" del registro. Sólo se
    * usa cuando el autenticado es manager — para el resto el usuario está
@@ -54,7 +58,7 @@ const formatFecha = (iso: string): string =>
 
 type FormField =
   | 'usuario'
-  | 'vehiculo'
+  | 'unidad'
   | 'kmInicial'
   | 'kmFinal'
   | 'fecha'
@@ -73,8 +77,8 @@ const API_FIELD_MAP: Record<string, FormField> = {
   kilometrajeFinal: 'kmFinal',
   'data.comentario': 'comentario',
   comentario: 'comentario',
-  'data.vehiculoId': 'vehiculo',
-  vehiculoId: 'vehiculo',
+  'data.unidadId': 'unidad',
+  unidadId: 'unidad',
   'data.empresaIds': 'empresaIds',
   empresaIds: 'empresaIds',
   'data.userId': 'usuario',
@@ -110,7 +114,7 @@ export const MovilizacionForm = ({
   open,
   initial,
   empresas,
-  vehiculos,
+  unidades,
   usuarios,
   onClose,
   onSubmit,
@@ -122,7 +126,7 @@ export const MovilizacionForm = ({
   const isManager = isMovilizacionManager(usuario?.roles);
 
   const [fecha, setFecha] = useState('');
-  const [vehiculo, setVehiculo] = useState<VehiculoDto | null>(null);
+  const [unidad, setUnidad] = useState<UnidadDto | null>(null);
   const [usuarioSel, setUsuarioSel] = useState<UsuarioListadoDto | null>(null);
   const [kmInicial, setKmInicial] = useState('');
   const [kmFinal, setKmFinal] = useState('');
@@ -132,7 +136,7 @@ export const MovilizacionForm = ({
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
-  const [ultima, setUltima] = useState<UltimaMovilizacionVehiculoDto | null>(
+  const [ultima, setUltima] = useState<UltimaMovilizacionUnidadDto | null>(
     null,
   );
   const [ultimaCargando, setUltimaCargando] = useState(false);
@@ -146,16 +150,16 @@ export const MovilizacionForm = ({
     [empresas],
   );
 
-  const vehiculosOptions = useMemo<VehiculoDto[]>(() => {
-    const activos = vehiculos.filter((v) => v.activo);
+  const unidadesOptions = useMemo<UnidadDto[]>(() => {
+    const activos = unidades.filter((v) => v.activo);
     if (
       initial &&
-      !activos.some((v) => v.id === initial.vehiculo.id)
+      !activos.some((v) => v.id === initial.unidad.id)
     ) {
-      return [...activos, { ...initial.vehiculo, activo: false }];
+      return [...activos, { ...initial.unidad, activo: false } as UnidadDto];
     }
     return activos;
-  }, [vehiculos, initial]);
+  }, [unidades, initial]);
 
   // Opciones de usuario para managers. En edición conservamos el dueño
   // original aunque no esté en la lista (no debería pasar, pero por seguridad).
@@ -190,11 +194,11 @@ export const MovilizacionForm = ({
 
     // Vehículo seleccionado.
     if (initial) {
-      setVehiculo(
-        vehiculosOptions.find((v) => v.id === initial.vehiculo.id) ?? null,
+      setUnidad(
+        unidadesOptions.find((v) => v.id === initial.unidad.id) ?? null,
       );
     } else {
-      setVehiculo(null);
+      setUnidad(null);
     }
 
     // Usuario "dueño" del registro:
@@ -242,7 +246,7 @@ export const MovilizacionForm = ({
     } else {
       setEmpresaIds([]);
     }
-  }, [open, initial, vehiculosOptions, usuariosOptions, isManager, usuario]);
+  }, [open, initial, unidadesOptions, usuariosOptions, isManager, usuario]);
 
   // ---------------------------------------------------------------------------
   // Al cambiar el vehículo o la fecha: cargar la movilización inmediatamente
@@ -255,7 +259,7 @@ export const MovilizacionForm = ({
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!open) return;
-    if (!vehiculo) {
+    if (!unidad) {
       setUltima(null);
       return;
     }
@@ -270,7 +274,7 @@ export const MovilizacionForm = ({
     const timer = setTimeout(() => {
       setUltimaCargando(true);
       movilizacionService
-        .lastByVehiculo(vehiculo.id, initial?.id, beforeFechaISO)
+        .lastByUnidad(unidad.id, initial?.id, beforeFechaISO)
         .then((res) => {
           if (!cancelled) setUltima(res);
         })
@@ -286,7 +290,7 @@ export const MovilizacionForm = ({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [open, vehiculo, fecha, initial?.id]);
+  }, [open, unidad, fecha, initial?.id]);
 
   const toggleEmpresa = (id: number) => {
     clearField('empresaIds');
@@ -326,23 +330,19 @@ export const MovilizacionForm = ({
   const validateClient = (): FieldErrors => {
     const errs: FieldErrors = {};
 
-    if (!vehiculo) errs.vehiculo = 'Selecciona un vehículo';
+    if (!unidad) errs.unidad = 'Selecciona un vehículo';
     if (isManager && !usuarioSel) errs.usuario = 'Selecciona un usuario';
 
-    const kmIni = Number(kmInicial);
-    const kmFin = Number(kmFinal);
+    const kmIni = parseIntegerInput(kmInicial);
+    const kmFin = parseIntegerInput(kmFinal);
 
-    if (kmInicial === '' || !Number.isInteger(kmIni)) {
+    if (kmIni === null) {
       errs.kmInicial = 'Ingresa un kilometraje inicial entero válido';
     }
-    if (kmFinal === '' || !Number.isInteger(kmFin)) {
+    if (kmFin === null) {
       errs.kmFinal = 'Ingresa un kilometraje final entero válido';
     }
-    if (
-      Number.isInteger(kmIni) &&
-      Number.isInteger(kmFin) &&
-      kmFin < kmIni
-    ) {
+    if (kmIni !== null && kmFin !== null && kmFin < kmIni) {
       errs.kmFinal = 'El kilometraje final debe ser mayor o igual al inicial';
     }
 
@@ -378,15 +378,11 @@ export const MovilizacionForm = ({
   // ---------------------------------------------------------------------------
   // Cálculos derivados (recorrido + alertas).
   // ---------------------------------------------------------------------------
-  const kmIniNum = kmInicial === '' ? null : Number(kmInicial);
-  const kmFinNum = kmFinal === '' ? null : Number(kmFinal);
+  const kmIniNum = parseIntegerInput(kmInicial);
+  const kmFinNum = parseIntegerInput(kmFinal);
 
   const recorrido =
-    kmIniNum !== null &&
-    kmFinNum !== null &&
-    Number.isFinite(kmIniNum) &&
-    Number.isFinite(kmFinNum) &&
-    kmFinNum >= kmIniNum
+    kmIniNum !== null && kmFinNum !== null && kmFinNum >= kmIniNum
       ? kmFinNum - kmIniNum
       : null;
 
@@ -396,7 +392,6 @@ export const MovilizacionForm = ({
   const continuidadAlerta =
     ultima !== null &&
     kmIniNum !== null &&
-    Number.isFinite(kmIniNum) &&
     kmIniNum !== ultima.kilometrajeFinal;
 
   // ---------------------------------------------------------------------------
@@ -412,8 +407,8 @@ export const MovilizacionForm = ({
       return;
     }
 
-    const kmIni = Number(kmInicial);
-    const kmFin = Number(kmFinal);
+    const kmIni = parseIntegerInput(kmInicial)!;
+    const kmFin = parseIntegerInput(kmFinal)!;
 
     setSubmitting(true);
     try {
@@ -422,7 +417,7 @@ export const MovilizacionForm = ({
         kilometrajeInicial: kmIni,
         kilometrajeFinal: kmFin,
         comentario: comentario.trim(),
-        vehiculoId: vehiculo!.id,
+        unidadId: unidad!.id,
       };
       if (isManager) {
         (payload as CreateMovilizacionDto).empresaIds = empresaIds;
@@ -520,13 +515,13 @@ export const MovilizacionForm = ({
 
         {/* Vehículo */}
         <div className="flex flex-col gap-1">
-          <label className={labelClass(Boolean(fieldErrors.vehiculo))}>Vehículo</label>
-          <SearchableSelect<VehiculoDto>
-            options={vehiculosOptions}
-            value={vehiculo}
+          <label className={labelClass(Boolean(fieldErrors.unidad))}>Vehículo</label>
+          <SearchableSelect<UnidadDto>
+            options={unidadesOptions}
+            value={unidad}
             onChange={(v) => {
-              setVehiculo(v);
-              clearField('vehiculo');
+              setUnidad(v);
+              clearField('unidad');
             }}
             getKey={(v) => v.id}
             getLabel={(v) => v.nombre}
@@ -540,9 +535,9 @@ export const MovilizacionForm = ({
             placeholder="Buscar por clase o nombre..."
             emptyText="Sin vehículos"
             required
-            hasError={Boolean(fieldErrors.vehiculo)}
+            hasError={Boolean(fieldErrors.unidad)}
           />
-          <FieldError message={fieldErrors.vehiculo} />
+          <FieldError message={fieldErrors.unidad} />
         </div>
 
         {/* Bloque kilometrajes + fecha */}
@@ -552,13 +547,11 @@ export const MovilizacionForm = ({
               Kilometraje inicial
             </label>
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              step={1}
-              min={0}
               value={kmInicial}
               onChange={(e) => {
-                setKmInicial(e.target.value);
+                setKmInicial(sanitizeIntegerInput(e.target.value));
                 clearField('kmInicial');
               }}
               required
@@ -572,13 +565,11 @@ export const MovilizacionForm = ({
               Kilometraje final
             </label>
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              step={1}
-              min={0}
               value={kmFinal}
               onChange={(e) => {
-                setKmFinal(e.target.value);
+                setKmFinal(sanitizeIntegerInput(e.target.value));
                 clearField('kmFinal');
               }}
               required
@@ -626,7 +617,7 @@ export const MovilizacionForm = ({
         </div>
 
         {/* Alerta informativa: km inicial vs último km final del mismo vehículo */}
-        {vehiculo && !ultimaCargando && continuidadAlerta && ultima && (
+        {unidad && !ultimaCargando && continuidadAlerta && ultima && (
           <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-sm">
             <strong className="font-semibold">Aviso:</strong> el último km final
             registrado para este vehículo fue{' '}

@@ -1,4 +1,8 @@
-import { REPORTES_ACCESS_ROLES, type RolNombre } from '../types/roles.types';
+import {
+  DISPENSADO_MANAGER_ROLES,
+  REPORTES_ACCESS_ROLES,
+  type RolNombre,
+} from '../types/roles.types';
 
 /**
  * Catálogo de módulos principales de la aplicación.
@@ -28,7 +32,16 @@ export const APP_MODULES: AppModule[] = [
     label: 'Dispensados',
     allowed: ['controlroom', 'logistica', 'almacen', 'admin'],
   },
-  { path: '/admin', label: 'Administración', allowed: ['admin'] },
+  {
+    path: '/combustible',
+    label: 'Combustible',
+    allowed: DISPENSADO_MANAGER_ROLES,
+  },
+  {
+    path: '/configuraciones',
+    label: 'Configuraciones',
+    allowed: DISPENSADO_MANAGER_ROLES,
+  },
   { path: '/usuarios', label: 'Usuarios', allowed: ['admin'] },
   { path: '/empresas', label: 'Empresas', allowed: ['contabilidad', 'admin'] },
   {
@@ -36,8 +49,8 @@ export const APP_MODULES: AppModule[] = [
     label: 'Reportes',
     allowed: REPORTES_ACCESS_ROLES,
   },
-  { path: '/vehiculos', label: 'Vehículos', allowed: ['logistica', 'admin'] },
-  { path: '/monitoreo', label: 'Monitoreo', allowed: ['controlroom', 'admin'] },
+  { path: '/unidades', label: 'Unidades', allowed: ['logistica', 'admin'] },
+  { path: '/categorias', label: 'Categorías', allowed: ['logistica', 'admin'] },
 ];
 
 /**

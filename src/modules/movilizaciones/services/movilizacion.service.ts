@@ -4,7 +4,7 @@ import type {
   CreateMovilizacionDto,
   MovilizacionDto,
   MovilizacionListQuery,
-  UltimaMovilizacionVehiculoDto,
+  UltimaMovilizacionUnidadDto,
   UpdateMovilizacionDto,
 } from '../types/movilizacion.types';
 
@@ -15,8 +15,8 @@ const buildQueryString = (query: MovilizacionListQuery): string => {
   const params = new URLSearchParams();
   if (query.desde) params.set('desde', query.desde);
   if (query.hasta) params.set('hasta', query.hasta);
-  if (query.vehiculoId !== undefined)
-    params.set('vehiculoId', String(query.vehiculoId));
+  if (query.unidadId !== undefined)
+    params.set('unidadId', String(query.unidadId));
   if (query.userId !== undefined) params.set('userId', String(query.userId));
   if (query.page !== undefined) params.set('page', String(query.page));
   if (query.pageSize !== undefined)
@@ -54,8 +54,8 @@ export const movilizacionService = {
    * - `beforeFecha` (ISO) acota el lookup a la última con `fecha < beforeFecha`.
    *   Sin él, devuelve la última registrada en general.
    */
-  lastByVehiculo: (
-    vehiculoId: number,
+  lastByUnidad: (
+    unidadId: number,
     excludeId?: number,
     beforeFecha?: string,
   ) => {
@@ -64,8 +64,8 @@ export const movilizacionService = {
     if (beforeFecha) params.set('beforeFecha', beforeFecha);
     const s = params.toString();
     const qs = s ? `?${s}` : '';
-    return apiClient.get<UltimaMovilizacionVehiculoDto | null>(
-      `${BASE}/last-by-vehiculo/${vehiculoId}${qs}`,
+    return apiClient.get<UltimaMovilizacionUnidadDto | null>(
+      `${BASE}/last-by-unidad/${unidadId}${qs}`,
       opts,
     );
   },

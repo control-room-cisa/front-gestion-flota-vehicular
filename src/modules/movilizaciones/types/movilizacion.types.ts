@@ -16,7 +16,7 @@ export interface MovilizacionEmpresaDto {
   nombre: string;
 }
 
-export interface MovilizacionVehiculoDto {
+export interface MovilizacionUnidadDto {
   id: number;
   nombre: string;
   clase: string;
@@ -33,7 +33,7 @@ export interface MovilizacionDto {
   createdAt: string;
   updatedAt: string;
   usuario: MovilizacionUsuarioDto;
-  vehiculo: MovilizacionVehiculoDto;
+  unidad: MovilizacionUnidadDto;
   empresas: MovilizacionEmpresaDto[];
   canManage: boolean;
 }
@@ -43,7 +43,7 @@ export interface CreateMovilizacionDto {
   kilometrajeInicial: number;
   kilometrajeFinal: number;
   comentario: string;
-  vehiculoId: number;
+  unidadId: number;
   empresaIds: number[];
   /** Solo lo respetan controlroom / logistica / admin. */
   esViaje?: boolean;
@@ -56,7 +56,7 @@ export interface UpdateMovilizacionDto {
   kilometrajeInicial?: number;
   kilometrajeFinal?: number;
   comentario?: string;
-  vehiculoId?: number;
+  unidadId?: number;
   empresaIds?: number[];
   /** Solo lo respetan controlroom / logistica / admin. */
   esViaje?: boolean;
@@ -68,7 +68,7 @@ export interface UpdateMovilizacionDto {
  * Sirve para alertar al usuario cuando el `kilometrajeInicial` no
  * coincide con el `kilometrajeFinal` del registro previo.
  */
-export interface UltimaMovilizacionVehiculoDto {
+export interface UltimaMovilizacionUnidadDto {
   id: number;
   fecha: string;
   kilometrajeInicial: number;
@@ -84,7 +84,7 @@ export interface MovilizacionListQuery {
   desde?: string;
   /** ISO completo (preferentemente fin de día en TZ local). */
   hasta?: string;
-  vehiculoId?: number;
+  unidadId?: number;
   /** Dueño del registro. Managers: cualquier usuario; demás: solo el propio. */
   userId?: number;
   page?: number;

@@ -85,9 +85,9 @@ export const MovilizacionDetalleModal = ({
           </span>
         </DetalleRow>
         <DetalleRow label="Vehículo">
-          <span className="font-semibold">{movilizacion.vehiculo.nombre}</span>
+          <span className="font-semibold">{movilizacion.unidad.nombre}</span>
           <span className="block text-xs font-mono uppercase text-slate-500 mt-0.5">
-            {movilizacion.vehiculo.clase}
+            {movilizacion.unidad.clase}
           </span>
         </DetalleRow>
         <DetalleRow label="Km inicial">

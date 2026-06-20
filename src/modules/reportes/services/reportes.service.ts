@@ -9,19 +9,19 @@ const BASE = '/reportes';
 const opts = { auth: true };
 
 export const reportesService = {
-  rendimientoCombustible: (vehiculoId: number) =>
+  rendimientoCombustible: (unidadId: number) =>
     apiClient.get<RendimientoCombustibleDto>(
-      `${BASE}/rendimiento-combustible?vehiculoId=${vehiculoId}`,
+      `${BASE}/rendimiento-combustible?unidadId=${unidadId}`,
       opts,
     ),
 
   kilometrosDiarios: (params: {
-    vehiculoId: number;
+    unidadId: number;
     desde?: string;
     hasta?: string;
   }) => {
     const qs = new URLSearchParams();
-    qs.set('vehiculoId', String(params.vehiculoId));
+    qs.set('unidadId', String(params.unidadId));
     if (params.desde) qs.set('desde', params.desde);
     if (params.hasta) qs.set('hasta', params.hasta);
     return apiClient.get<KilometrosDiariosDto>(

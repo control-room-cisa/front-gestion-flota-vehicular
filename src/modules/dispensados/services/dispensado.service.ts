@@ -14,8 +14,8 @@ const buildQueryString = (query: DispensadoListQuery): string => {
   const params = new URLSearchParams();
   if (query.desde) params.set('desde', query.desde);
   if (query.hasta) params.set('hasta', query.hasta);
-  if (query.vehiculoId !== undefined)
-    params.set('vehiculoId', String(query.vehiculoId));
+  if (query.unidadId !== undefined)
+    params.set('unidadId', String(query.unidadId));
   if (query.page !== undefined) params.set('page', String(query.page));
   if (query.pageSize !== undefined)
     params.set('pageSize', String(query.pageSize));

@@ -95,6 +95,20 @@ export const isDispensadoManager = (
 ): boolean => hasRole(userRoles, DISPENSADO_MANAGER_ROLES);
 
 /**
+ * Roles que pueden editar manualmente el precio por galón en dispensados.
+ * El resto usa el valor de configuración (alta) o conserva el guardado (edición).
+ */
+export const DISPENSADO_PRECIO_EDIT_ROLES: RolNombre[] = [
+  'contabilidad',
+  'logistica',
+  'admin',
+];
+
+export const canEditDispensadoPrecio = (
+  userRoles: RolNombre[] | undefined,
+): boolean => hasRole(userRoles, DISPENSADO_PRECIO_EDIT_ROLES);
+
+/**
  * Roles con acceso al módulo de reportes operativos
  * (rendimiento de combustible, kilómetros diarios, etc.).
  */
