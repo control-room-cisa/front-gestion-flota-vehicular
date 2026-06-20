@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import { useAuth } from "../../../shared/auth/AuthContext";
 import { useConfirm } from "../../../shared/components/ConfirmProvider";
 import { SearchableSelect } from "../../../shared/components/SearchableSelect";
@@ -36,6 +36,35 @@ type Modo =
   | { tipo: "editar"; movilizacion: MovilizacionDto };
 
 const PAGE_SIZE = 20;
+
+const EXCEL_MOVILIZACIONES_HEADERS = [
+  "Fecha y hora",
+  "Vehículo",
+  "Usuario",
+  "Inicio",
+  "Fin",
+  "Recorrido",
+  "Es viaje",
+  "Empresas",
+  "Comentario",
+] as const;
+
+const EXCEL_FILA_VIAJE_STYLE = {
+  fill: { patternType: "solid" as const, fgColor: { rgb: "FFFECACA" } },
+  font: { color: { rgb: "FF000000" } },
+};
+
+function aplicarEstiloFilaViajeExcel(
+  ws: XLSX.WorkSheet,
+  rowIndex: number,
+  numCols: number,
+) {
+  for (let c = 0; c < numCols; c++) {
+    const addr = XLSX.utils.encode_cell({ r: rowIndex, c });
+    const cell = ws[addr];
+    if (cell) cell.s = EXCEL_FILA_VIAJE_STYLE;
+  }
+}
 
 /**
  * Sentinel para la opción "Todos los vehículos" dentro del filtro.
@@ -482,17 +511,17 @@ export const MovilizacionesPage = () => {
       }));
 
       const ws = XLSX.utils.json_to_sheet(filas, {
-        header: [
-          "Fecha y hora",
-          "Vehículo",
-          "Usuario",
-          "Inicio",
-          "Fin",
-          "Recorrido",
-          "Es viaje",
-          "Empresas",
-          "Comentario",
-        ],
+        header: [...EXCEL_MOVILIZACIONES_HEADERS],
+      });
+
+      todos.forEach((m, i) => {
+        if (m.esViaje) {
+          aplicarEstiloFilaViajeExcel(
+            ws,
+            i + 1,
+            EXCEL_MOVILIZACIONES_HEADERS.length,
+          );
+        }
       });
 
       // Anchos de columna aproximados para que el archivo se vea legible
