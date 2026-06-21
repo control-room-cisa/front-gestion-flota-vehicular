@@ -215,30 +215,15 @@ export const UnidadesPage = () => {
             </label>
           </div>
 
-          {modo.tipo === 'oculto' && (
-            <button
-              type="button"
-              onClick={() => setModo({ tipo: 'crear' })}
-              disabled={categoriaFiltro === ''}
-              className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              + Nueva unidad
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setModo({ tipo: 'crear' })}
+            disabled={categoriaFiltro === ''}
+            className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            + Nueva unidad
+          </button>
         </div>
-
-        {modo.tipo !== 'oculto' && (
-          <UnidadForm
-            initial={modo.tipo === 'editar' ? modo.unidad : null}
-            defaultCategoriaId={
-              modo.tipo === 'crear' && categoriaFiltro !== ''
-                ? categoriaFiltro
-                : undefined
-            }
-            onCancel={() => setModo({ tipo: 'oculto' })}
-            onSubmit={handleSubmit}
-          />
-        )}
 
         {error && (
           <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-sm">
@@ -371,6 +356,18 @@ export const UnidadesPage = () => {
           </div>
         </div>
       </main>
+
+      <UnidadForm
+        open={modo.tipo !== 'oculto'}
+        initial={modo.tipo === 'editar' ? modo.unidad : null}
+        defaultCategoriaId={
+          modo.tipo === 'crear' && categoriaFiltro !== ''
+            ? categoriaFiltro
+            : undefined
+        }
+        onClose={() => setModo({ tipo: 'oculto' })}
+        onSubmit={handleSubmit}
+      />
 
       {menuAcciones &&
         createPortal(

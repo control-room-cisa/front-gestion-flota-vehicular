@@ -13,7 +13,12 @@ import {
   ProtectedRoute,
   PublicOnlyRoute,
 } from '../shared/auth/route-guards';
-import { REPORTES_ACCESS_ROLES, DISPENSADO_MANAGER_ROLES } from '../shared/types/roles.types';
+import {
+  COMBUSTIBLE_ACCESS_ROLES,
+  CONFIGURACIONES_ACCESS_ROLES,
+  DISPENSADO_MANAGER_ROLES,
+  REPORTES_ACCESS_ROLES,
+} from '../shared/types/roles.types';
 import { AppLayout } from '../shared/components/AppLayout';
 import type { AppRouteHandle } from '../shared/components/AppLayout';
 
@@ -91,13 +96,17 @@ export const router = createBrowserRouter([
       },
       {
         path: '/dispensados',
-        element: <DispensadosPage />,
+        element: (
+          <ProtectedRoute allowed={DISPENSADO_MANAGER_ROLES}>
+            <DispensadosPage />
+          </ProtectedRoute>
+        ),
         ...h({ title: 'Dispensados', subtitle: 'Carga de combustible' }),
       },
       {
         path: '/combustible',
         element: (
-          <ProtectedRoute allowed={DISPENSADO_MANAGER_ROLES}>
+          <ProtectedRoute allowed={COMBUSTIBLE_ACCESS_ROLES}>
             <CombustiblePage />
           </ProtectedRoute>
         ),
@@ -106,7 +115,7 @@ export const router = createBrowserRouter([
       {
         path: '/configuraciones',
         element: (
-          <ProtectedRoute allowed={DISPENSADO_MANAGER_ROLES}>
+          <ProtectedRoute allowed={CONFIGURACIONES_ACCESS_ROLES}>
             <ConfiguracionesPage />
           </ProtectedRoute>
         ),

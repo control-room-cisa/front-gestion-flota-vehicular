@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Modal } from '../../../shared/components/Modal';
 import type {
   CreateCategoriaDto,
   CategoriaDto,
@@ -6,14 +7,16 @@ import type {
 } from '../types/categoria.types';
 
 interface CategoriaFormProps {
+  open: boolean;
   initial?: CategoriaDto | null;
-  onCancel: () => void;
+  onClose: () => void;
   onSubmit: (data: CreateCategoriaDto | UpdateCategoriaDto) => Promise<void>;
 }
 
 export const CategoriaForm = ({
+  open,
   initial,
-  onCancel,
+  onClose,
   onSubmit,
 }: CategoriaFormProps) => {
   const editing = Boolean(initial);
@@ -22,9 +25,10 @@ export const CategoriaForm = ({
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!open) return;
     setNombre(initial?.nombre ?? '');
     setError(undefined);
-  }, [initial]);
+  }, [open, initial]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,49 +44,49 @@ export const CategoriaForm = ({
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4"
+    <Modal
+      open={open}
+      onClose={onClose}
+      busy={submitting}
+      title={editing ? `Editar ${initial?.nombre}` : 'Nueva categoría'}
     >
-      <h2 className="text-lg font-bold text-slate-800">
-        {editing ? `Editar ${initial?.nombre}` : 'Nueva categoría'}
-      </h2>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-sm">
+            {error}
+          </div>
+        )}
 
-      {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-sm">
-          {error}
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-semibold text-slate-700">Nombre</label>
+          <input
+            type="text"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            maxLength={50}
+            required
+            className="px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            placeholder="Ej. Vehículos livianos"
+          />
         </div>
-      )}
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-semibold text-slate-700">Nombre</label>
-        <input
-          type="text"
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
-          maxLength={50}
-          required
-          className="px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-          placeholder="Ej. Vehículos livianos"
-        />
-      </div>
-
-      <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
-        >
-          Cancelar
-        </button>
-        <button
-          type="submit"
-          disabled={submitting}
-          className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-70"
-        >
-          {submitting ? 'Guardando...' : editing ? 'Actualizar' : 'Crear categoría'}
-        </button>
-      </div>
-    </form>
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-70"
+          >
+            {submitting ? 'Guardando…' : editing ? 'Actualizar' : 'Crear categoría'}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 };

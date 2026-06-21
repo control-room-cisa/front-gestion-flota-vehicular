@@ -108,6 +108,53 @@ export const canEditDispensadoPrecio = (
   userRoles: RolNombre[] | undefined,
 ): boolean => hasRole(userRoles, DISPENSADO_PRECIO_EDIT_ROLES);
 
+/** Acceso al módulo de configuraciones del sistema. */
+export const CONFIGURACIONES_ACCESS_ROLES: RolNombre[] = ['admin'];
+
+export const canAccessConfiguraciones = (
+  userRoles: RolNombre[] | undefined,
+): boolean => hasRole(userRoles, CONFIGURACIONES_ACCESS_ROLES);
+
+/** Pestaña Niveles del módulo Combustible (tanque diesel). */
+export const COMBUSTIBLE_NIVELES_ACCESS_ROLES: RolNombre[] = [
+  'contabilidad',
+  'almacen',
+  'controlroom',
+  'logistica',
+  'admin',
+];
+
+export const canAccessCombustibleNiveles = (
+  userRoles: RolNombre[] | undefined,
+): boolean => hasRole(userRoles, COMBUSTIBLE_NIVELES_ACCESS_ROLES);
+
+/** Pestaña Precios del módulo Combustible. */
+export const COMBUSTIBLE_PRECIOS_ACCESS_ROLES: RolNombre[] = [
+  'admin',
+  'logistica',
+  'contabilidad',
+];
+
+export const canAccessCombustiblePrecios = (
+  userRoles: RolNombre[] | undefined,
+): boolean => hasRole(userRoles, COMBUSTIBLE_PRECIOS_ACCESS_ROLES);
+
+/**
+ * Acceso al módulo Combustible (al menos una pestaña).
+ * Unión de roles de Niveles y Precios.
+ */
+export const COMBUSTIBLE_ACCESS_ROLES: RolNombre[] = [
+  'contabilidad',
+  'almacen',
+  'controlroom',
+  'logistica',
+  'admin',
+];
+
+export const canAccessCombustible = (
+  userRoles: RolNombre[] | undefined,
+): boolean => hasRole(userRoles, COMBUSTIBLE_ACCESS_ROLES);
+
 /**
  * Roles con acceso al módulo de reportes operativos
  * (rendimiento de combustible, kilómetros diarios, etc.).

@@ -1,10 +1,23 @@
 /**
  * Dimensiones fijas del tanque diesel (cilindro horizontal).
- * Única fuente de verdad: capacidad y volumen por nivel usan este objeto.
+ * Medidas de campo con metro; cálculos de volumen en metros.
+ *
+ * La capacidad nominal (5 000 gal) es el valor fijo de ficha técnica.
+ * El diámetro y la longitud solo alimentan la fórmula de diesel disponible.
  */
 export const TANQUE_DIESEL_MEDIDAS = {
-  /** Diámetro interior / altura del cilindro (pulgadas). */
-  alturaPulgadas: 60,
-  /** Longitud del cilindro (pulgadas). */
-  longitudPulgadas: 90,
+  /** Diámetro interior (cm), medida de campo. */
+  diametroCm: 289.5,
+  /** Longitud del cilindro (cm), medida de campo. */
+  longitudCm: 290,
+  /** Diámetro interior (m). */
+  diametroMetros: 2.895,
+  /** Longitud del cilindro (m). */
+  longitudMetros: 2.9,
+  /** Capacidad nominal fija (galones US), especificación técnica. */
+  capacidadNominalGalones: 5000,
 } as const;
+
+/** Altura máxima del combustible desde la base (= diámetro), en cm. */
+export const alturaMaximaTanqueCm = (): number =>
+  TANQUE_DIESEL_MEDIDAS.diametroCm;

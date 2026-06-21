@@ -5,6 +5,7 @@ import {
   sanitizeDecimalInput,
 } from "../../../shared/utils/numeric-input";
 import {
+  alturaMaximaTanqueCm,
   formatGalonesDisplay,
   volumenGalonesDesdeAlturaTanque,
 } from "../utils/tanque-cilindrico";
@@ -35,6 +36,7 @@ const toLocalInput = (iso?: string): string => {
 const fromLocalInput = (local: string): string => new Date(local).toISOString();
 
 const COMENTARIO_MAX = 200;
+const ALTURA_MAX_CM = alturaMaximaTanqueCm();
 
 const readonlyInputClass =
   "px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 cursor-not-allowed font-mono outline-none";
@@ -57,7 +59,7 @@ export const NivelTanqueDieselForm = ({
   useEffect(() => {
     if (!open) return;
     setFecha(toLocalInput(initial?.fecha));
-    setAltura(initial?.alturaPulgadas ?? "");
+    setAltura(initial?.alturaCm ?? "");
     setComentario(initial?.comentario ?? "");
     setRelleno(initial?.rellenoCombustible ?? false);
     setGalonesRellenados(initial?.galonesRellenados ?? "");
@@ -83,7 +85,13 @@ export const NivelTanqueDieselForm = ({
 
     const alturaNum = parseDecimalInput(altura);
     if (alturaNum === null || alturaNum < 0) {
-      setError("Ingresa una altura válida en pulgadas");
+      setError("Ingresa una altura válida en centímetros");
+      return;
+    }
+    if (alturaNum > ALTURA_MAX_CM) {
+      setError(
+        `La altura no puede exceder ${ALTURA_MAX_CM} cm (diámetro del tanque)`,
+      );
       return;
     }
     if (volumenCalculado === null) {
@@ -110,7 +118,7 @@ export const NivelTanqueDieselForm = ({
     try {
       const payload = {
         fecha: fromLocalInput(fecha),
-        alturaPulgadas: alturaNum,
+        alturaCm: alturaNum,
         volumenGalones: volumenCalculado,
         comentario: comentarioTrim || null,
         rellenoCombustible: relleno,
@@ -151,7 +159,7 @@ export const NivelTanqueDieselForm = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-semibold text-slate-700">
-              Altura (pulgadas)
+              Altura (cm)
             </label>
             <input
               type="text"
@@ -162,7 +170,7 @@ export const NivelTanqueDieselForm = ({
               className="px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
             />
             <span className="text-xs text-slate-500">
-              Medida desde la base del tanque.
+              Medida desde la base del tanque (máx. {ALTURA_MAX_CM} cm).
             </span>
           </div>
           <div className="flex flex-col gap-1">

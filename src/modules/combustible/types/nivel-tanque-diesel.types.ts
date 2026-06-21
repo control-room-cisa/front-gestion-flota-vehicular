@@ -1,7 +1,7 @@
 export interface NivelTanqueDieselDto {
   id: number;
   fecha: string;
-  alturaPulgadas: string;
+  alturaCm: string;
   volumenGalones: string;
   comentario: string | null;
   rellenoCombustible: boolean;
@@ -12,7 +12,7 @@ export interface NivelTanqueDieselDto {
 
 export interface CreateNivelTanqueDieselDto {
   fecha: string;
-  alturaPulgadas: number;
+  alturaCm: number;
   volumenGalones: number;
   comentario?: string | null;
   rellenoCombustible: boolean;
@@ -21,7 +21,7 @@ export interface CreateNivelTanqueDieselDto {
 
 export interface UpdateNivelTanqueDieselDto {
   fecha?: string;
-  alturaPulgadas?: number;
+  alturaCm?: number;
   volumenGalones?: number;
   comentario?: string | null;
   rellenoCombustible?: boolean;

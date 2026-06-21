@@ -151,24 +151,14 @@ export const CategoriasPage = () => {
             Mostrar categorías inactivas
           </label>
 
-          {modo.tipo === 'oculto' && (
-            <button
-              type="button"
-              onClick={() => setModo({ tipo: 'crear' })}
-              className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500"
-            >
-              + Nueva categoría
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setModo({ tipo: 'crear' })}
+            className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500"
+          >
+            + Nueva categoría
+          </button>
         </div>
-
-        {modo.tipo !== 'oculto' && (
-          <CategoriaForm
-            initial={modo.tipo === 'editar' ? modo.categoria : null}
-            onCancel={() => setModo({ tipo: 'oculto' })}
-            onSubmit={handleSubmit}
-          />
-        )}
 
         {error && (
           <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-sm">
@@ -264,6 +254,13 @@ export const CategoriasPage = () => {
           </div>
         </div>
       </main>
+
+      <CategoriaForm
+        open={modo.tipo !== 'oculto'}
+        initial={modo.tipo === 'editar' ? modo.categoria : null}
+        onClose={() => setModo({ tipo: 'oculto' })}
+        onSubmit={handleSubmit}
+      />
 
       {menuAcciones?.categoria.editable &&
         createPortal(

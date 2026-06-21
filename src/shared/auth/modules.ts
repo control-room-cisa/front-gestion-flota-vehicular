@@ -1,5 +1,6 @@
 import {
-  DISPENSADO_MANAGER_ROLES,
+  COMBUSTIBLE_ACCESS_ROLES,
+  CONFIGURACIONES_ACCESS_ROLES,
   REPORTES_ACCESS_ROLES,
   type RolNombre,
 } from '../types/roles.types';
@@ -35,12 +36,12 @@ export const APP_MODULES: AppModule[] = [
   {
     path: '/combustible',
     label: 'Combustible',
-    allowed: DISPENSADO_MANAGER_ROLES,
+    allowed: COMBUSTIBLE_ACCESS_ROLES,
   },
   {
     path: '/configuraciones',
     label: 'Configuraciones',
-    allowed: DISPENSADO_MANAGER_ROLES,
+    allowed: CONFIGURACIONES_ACCESS_ROLES,
   },
   { path: '/usuarios', label: 'Usuarios', allowed: ['admin'] },
   { path: '/empresas', label: 'Empresas', allowed: ['contabilidad', 'admin'] },

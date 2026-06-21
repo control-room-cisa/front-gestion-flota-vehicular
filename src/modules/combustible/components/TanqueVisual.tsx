@@ -28,12 +28,12 @@ export const TanqueVisual = ({
 }: TanqueVisualProps) => {
   const pct = clamp(porcentaje);
   const fillHeight = `${pct}%`;
-  const nivelPulg =
+  const nivelCm =
     ultimo !== null && ultimo !== undefined
-      ? parseDecimalSafe(ultimo.alturaPulgadas)
+      ? parseDecimalSafe(ultimo.alturaCm)
       : null;
   const volumenGal =
-    nivelPulg !== null ? volumenGalonesDesdeAlturaTanque(nivelPulg) : null;
+    nivelCm !== null ? volumenGalonesDesdeAlturaTanque(nivelCm) : null;
 
   return (
     <div
@@ -104,7 +104,7 @@ export const TanqueVisual = ({
         <div className="flex justify-between gap-3">
           <dt className="text-slate-500">Nivel</dt>
           <dd className="font-semibold tabular-nums text-slate-800">
-            {nivelPulg !== null ? `${nivelPulg.toFixed(2)} pulg` : '—'}
+            {nivelCm !== null ? `${nivelCm.toFixed(1)} cm` : '—'}
           </dd>
         </div>
       </dl>

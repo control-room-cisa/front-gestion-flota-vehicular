@@ -46,8 +46,7 @@ const calcPorcentaje = (volumen: number, capacidad: number): number => {
 };
 
 const volumenGalonesNivel = (n: NivelTanqueDieselDto): number =>
-  volumenGalonesDesdeAlturaTanque(parseDecimalInput(n.alturaPulgadas) ?? 0) ??
-  0;
+  volumenGalonesDesdeAlturaTanque(parseDecimalInput(n.alturaCm) ?? 0) ?? 0;
 
 type NivelConDiferencia = NivelTanqueDieselDto & {
   /** Variación de volumen vs el registro anterior (más antiguo). */
@@ -245,7 +244,7 @@ export const NivelesTanqueTab = () => {
                     Fecha
                   </th>
                   <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
-                    Altura (pulg)
+                    Altura (cm)
                   </th>
                   <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
                     Volumen (gal)
@@ -291,7 +290,7 @@ export const NivelesTanqueTab = () => {
                         {formatFecha(n.fecha)}
                       </td>
                       <td className="px-3 py-3 text-slate-700 tabular-nums">
-                        {n.alturaPulgadas}
+                        {n.alturaCm}
                       </td>
                       <td className="px-3 py-3 text-slate-700 tabular-nums">
                         {formatGalonesDisplay(volumenGalonesNivel(n))}

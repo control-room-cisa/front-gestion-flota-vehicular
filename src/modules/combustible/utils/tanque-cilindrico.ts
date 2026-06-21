@@ -1,7 +1,10 @@
-import { TANQUE_DIESEL_MEDIDAS } from "../constants/tanque-diesel.constants";
+import {
+  TANQUE_DIESEL_MEDIDAS,
+  alturaMaximaTanqueCm,
+} from "../constants/tanque-diesel.constants";
 
-/** Pulgadas cúbicas por galón estadounidense. */
-const CU_IN_PER_US_GAL = 231;
+/** Metros cúbicos por galón estadounidense. */
+const M3_PER_US_GAL = 0.003785411784;
 
 /** Formato visual de galones: 2 decimales; los cálculos usan precisión completa. */
 export const formatGalonesDisplay = (galones: number): string =>
@@ -18,72 +21,70 @@ export const formatPorcentajeDisplay = (porcentaje: number): string =>
   });
 
 /**
- * Área del segmento circular (in²). Tanque cilíndrico horizontal;
- * h = altura del líquido desde el fondo, en pulgadas.
+ * Área del segmento circular (m²). Tanque cilíndrico horizontal;
+ * h = altura del líquido desde el fondo, en metros.
  */
-export const areaSegmentoCircularIn2 = (
-  alturaNivelPulgadas: number,
-  radioPulgadas: number,
+export const areaSegmentoCircularM2 = (
+  alturaNivelMetros: number,
+  radioMetros: number,
 ): number => {
-  if (radioPulgadas <= 0 || alturaNivelPulgadas <= 0) return 0;
-  const diametro = radioPulgadas * 2;
-  const h = Math.min(alturaNivelPulgadas, diametro);
-  if (h >= diametro) return Math.PI * radioPulgadas * radioPulgadas;
+  if (radioMetros <= 0 || alturaNivelMetros <= 0) return 0;
+  const diametro = radioMetros * 2;
+  const h = Math.min(alturaNivelMetros, diametro);
+  if (h >= diametro) return Math.PI * radioMetros * radioMetros;
 
-  const cosArg = Math.max(-1, Math.min(1, (radioPulgadas - h) / radioPulgadas));
-  const triBase = Math.max(0, 2 * radioPulgadas * h - h * h);
+  const cosArg = Math.max(-1, Math.min(1, (radioMetros - h) / radioMetros));
+  const triBase = Math.max(0, 2 * radioMetros * h - h * h);
   return (
-    radioPulgadas * radioPulgadas * Math.acos(cosArg) -
-    (radioPulgadas - h) * Math.sqrt(triBase)
+    radioMetros * radioMetros * Math.acos(cosArg) -
+    (radioMetros - h) * Math.sqrt(triBase)
   );
 };
 
-/** Capacidad nominal (tanque lleno) en galones. V = π·r²·L (pulg³ → gal). */
-export const capacidadGalonesCilindro = (
-  alturaTanquePulgadas: number,
-  longitudPulgadas: number,
+/** Capacidad teórica llena (V = π·r²·L) convertida a galones US. */
+export const capacidadGalonesCilindroCalculada = (
+  diametroMetros: number,
+  longitudMetros: number,
 ): number | null => {
-  if (alturaTanquePulgadas <= 0 || longitudPulgadas <= 0) return null;
-  const radio = alturaTanquePulgadas / 2;
-  const volIn3 = Math.PI * radio * radio * longitudPulgadas;
-  return volIn3 / CU_IN_PER_US_GAL;
+  if (diametroMetros <= 0 || longitudMetros <= 0) return null;
+  const radio = diametroMetros / 2;
+  const volM3 = Math.PI * radio * radio * longitudMetros;
+  return volM3 / M3_PER_US_GAL;
 };
 
-/** Volumen parcial en galones según altura del combustible desde la base (pulgadas). */
+/**
+ * Volumen parcial en galones según altura del combustible desde la base (cm).
+ * Usa las dimensiones físicas del tanque; el tope es la capacidad nominal fija.
+ */
 export const volumenGalonesDesdeAltura = (
-  alturaNivelPulgadas: number,
-  alturaTanquePulgadas: number,
-  longitudPulgadas: number,
+  alturaNivelCm: number,
+  diametroMetros: number,
+  longitudMetros: number,
 ): number | null => {
-  if (alturaTanquePulgadas <= 0 || longitudPulgadas <= 0) return null;
-  if (alturaNivelPulgadas <= 0) return 0;
+  if (diametroMetros <= 0 || longitudMetros <= 0) return null;
+  if (alturaNivelCm <= 0) return 0;
 
-  const radio = alturaTanquePulgadas / 2;
-  const areaIn2 = areaSegmentoCircularIn2(alturaNivelPulgadas, radio);
-  const volIn3 = areaIn2 * longitudPulgadas;
-  const galones = volIn3 / CU_IN_PER_US_GAL;
+  const alturaNivelMetros = alturaNivelCm / 100;
+  const radioMetros = diametroMetros / 2;
+  const areaM2 = areaSegmentoCircularM2(alturaNivelMetros, radioMetros);
+  const volM3 = areaM2 * longitudMetros;
+  const galones = volM3 / M3_PER_US_GAL;
 
-  const capacidad = capacidadGalonesCilindro(
-    alturaTanquePulgadas,
-    longitudPulgadas,
-  );
-  if (capacidad !== null && galones > capacidad) return capacidad;
-  return galones;
+  return Math.min(galones, capacidadTanqueDieselGalones());
 };
 
-/** Capacidad nominal del tanque diesel (usa {@link TANQUE_DIESEL_MEDIDAS}). */
+/** Capacidad nominal fija del tanque (especificación técnica, no calculada). */
 export const capacidadTanqueDieselGalones = (): number =>
-  capacidadGalonesCilindro(
-    TANQUE_DIESEL_MEDIDAS.alturaPulgadas,
-    TANQUE_DIESEL_MEDIDAS.longitudPulgadas,
-  ) ?? 0;
+  TANQUE_DIESEL_MEDIDAS.capacidadNominalGalones;
 
-/** Volumen según nivel de combustible (usa {@link TANQUE_DIESEL_MEDIDAS}). */
+/** Volumen según nivel de combustible en cm (usa {@link TANQUE_DIESEL_MEDIDAS}). */
 export const volumenGalonesDesdeAlturaTanque = (
-  alturaNivelPulgadas: number,
+  alturaNivelCm: number,
 ): number | null =>
   volumenGalonesDesdeAltura(
-    alturaNivelPulgadas,
-    TANQUE_DIESEL_MEDIDAS.alturaPulgadas,
-    TANQUE_DIESEL_MEDIDAS.longitudPulgadas,
+    alturaNivelCm,
+    TANQUE_DIESEL_MEDIDAS.diametroMetros,
+    TANQUE_DIESEL_MEDIDAS.longitudMetros,
   );
+
+export { alturaMaximaTanqueCm };
