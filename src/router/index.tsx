@@ -7,6 +7,7 @@ import { ReportesPage } from '../modules/reportes/views/ReportesPage';
 import { UsuariosPage } from '../modules/usuarios/views/UsuariosPage';
 import { CategoriasPage } from '../modules/categorias/views/CategoriasPage';
 import { UnidadesPage } from '../modules/unidades/views/UnidadesPage';
+import { ConstruccionPage } from '../modules/construccion/views/ConstruccionPage';
 import { CombustiblePage } from '../modules/combustible/views/CombustiblePage';
 import { ConfiguracionesPage } from '../modules/configuraciones/views/ConfiguracionesPage';
 import {
@@ -16,6 +17,7 @@ import {
 import {
   COMBUSTIBLE_ACCESS_ROLES,
   CONFIGURACIONES_ACCESS_ROLES,
+  CONSTRUCCION_ACCESS_ROLES,
   DISPENSADO_MANAGER_ROLES,
   REPORTES_ACCESS_ROLES,
 } from '../shared/types/roles.types';
@@ -93,6 +95,19 @@ export const router = createBrowserRouter([
         path: '/movilizaciones',
         element: <MovilizacionesPage />,
         ...h({ title: 'Movilizaciones', subtitle: 'Ingreso de kilometrajes' }),
+      },
+      {
+        path: '/construccion',
+        element: <Navigate to="/uso-maquinaria" replace />,
+      },
+      {
+        path: '/uso-maquinaria',
+        element: (
+          <ProtectedRoute allowed={CONSTRUCCION_ACCESS_ROLES}>
+            <ConstruccionPage />
+          </ProtectedRoute>
+        ),
+        ...h({ title: 'Uso maquinaria', subtitle: 'Registro de horas y kilometraje' }),
       },
       {
         path: '/dispensados',

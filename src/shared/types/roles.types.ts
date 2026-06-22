@@ -17,6 +17,7 @@ export const ROLES = [
   'contabilidad',
   'almacen',
   'mecanica',
+  'construccion',
   'admin',
 ] as const;
 
@@ -154,6 +155,28 @@ export const COMBUSTIBLE_ACCESS_ROLES: RolNombre[] = [
 export const canAccessCombustible = (
   userRoles: RolNombre[] | undefined,
 ): boolean => hasRole(userRoles, COMBUSTIBLE_ACCESS_ROLES);
+
+/**
+ * Acceso al módulo de registros de construcción (uso de unidades en obra).
+ */
+export const CONSTRUCCION_ACCESS_ROLES: RolNombre[] = [
+  'admin',
+  'logistica',
+  'construccion',
+];
+
+export const canAccessConstruccion = (
+  userRoles: RolNombre[] | undefined,
+): boolean => hasRole(userRoles, CONSTRUCCION_ACCESS_ROLES);
+
+/**
+ * Roles con privilegios elevados sobre registros de construcción.
+ */
+export const CONSTRUCCION_MANAGER_ROLES: RolNombre[] = ['admin', 'logistica'];
+
+export const isConstruccionManager = (
+  userRoles: RolNombre[] | undefined,
+): boolean => hasRole(userRoles, CONSTRUCCION_MANAGER_ROLES);
 
 /**
  * Roles con acceso al módulo de reportes operativos

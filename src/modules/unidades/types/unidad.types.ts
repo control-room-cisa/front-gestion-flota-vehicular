@@ -32,10 +32,6 @@ export interface UnidadDto {
   categoria: UnidadCategoriaDto;
   tipoMedicion: TipoMedicion;
   tipoCombustible: TipoCombustible;
-  horometro: string | null;
-  inicio: string | null;
-  fin: string | null;
-  cantidadHoras: string | null;
 }
 
 export interface CreateUnidadDto {
@@ -44,10 +40,6 @@ export interface CreateUnidadDto {
   categoriaId: number;
   tipoMedicion: TipoMedicion;
   tipoCombustible: TipoCombustible;
-  horometro?: number | null;
-  inicio?: number | null;
-  fin?: number | null;
-  cantidadHoras?: number | null;
 }
 
 export interface UpdateUnidadDto {
@@ -57,8 +49,4 @@ export interface UpdateUnidadDto {
   categoriaId?: number;
   tipoMedicion?: TipoMedicion;
   tipoCombustible?: TipoCombustible;
-  horometro?: number | null;
-  inicio?: number | null;
-  fin?: number | null;
-  cantidadHoras?: number | null;
 }

@@ -20,6 +20,7 @@ const ROL_LABEL: Record<RolNombre, string> = {
   contabilidad: 'Contabilidad',
   almacen: 'Almacén',
   mecanica: 'Mecánica',
+  construccion: 'Construcción',
   admin: 'Administrador',
 };
 
@@ -30,6 +31,7 @@ const ROL_DESCRIPCION: Record<RolNombre, string> = {
   contabilidad: 'Gestión de empresas y reportes financieros.',
   almacen: 'Registro de dispensados de combustible.',
   mecanica: 'Consulta de reportes operativos de la flota.',
+  construccion: 'Registro de uso de maquinaria (horómetro y km).',
   admin: 'Acceso total al sistema, incluyendo administración de usuarios.',
 };
 

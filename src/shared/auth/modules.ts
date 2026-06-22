@@ -1,6 +1,7 @@
 import {
   COMBUSTIBLE_ACCESS_ROLES,
   CONFIGURACIONES_ACCESS_ROLES,
+  CONSTRUCCION_ACCESS_ROLES,
   REPORTES_ACCESS_ROLES,
   type RolNombre,
 } from '../types/roles.types';
@@ -28,6 +29,11 @@ export const APP_MODULES: AppModule[] = [
   // Movilizaciones está disponible para cualquier autenticado y se muestra
   // siempre en primer lugar del menú, sin importar el rol.
   { path: '/movilizaciones', label: 'Movilizaciones', allowed: [] },
+  {
+    path: '/uso-maquinaria',
+    label: 'Uso maquinaria',
+    allowed: CONSTRUCCION_ACCESS_ROLES,
+  },
   {
     path: '/dispensados',
     label: 'Dispensados',
