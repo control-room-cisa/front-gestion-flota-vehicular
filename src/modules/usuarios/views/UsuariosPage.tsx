@@ -27,6 +27,7 @@ const ROL_LABEL: Record<RolNombre, string> = {
   contabilidad: 'Contabilidad',
   almacen: 'Almacén',
   mecanica: 'Mecánica',
+  construccion: 'Uso maquinaria',
   admin: 'Admin',
 };
 
@@ -37,6 +38,7 @@ const ROL_BADGE: Record<RolNombre, string> = {
   contabilidad: 'bg-amber-100 text-amber-700',
   almacen: 'bg-purple-100 text-purple-700',
   mecanica: 'bg-orange-100 text-orange-700',
+  construccion: 'bg-teal-100 text-teal-700',
   admin: 'bg-rose-100 text-rose-700',
 };
 
