@@ -17,6 +17,12 @@ dist-ssr
 .env.*
 !.env.example
 
+
+# Backups de build / node_modules tras deploy fallido
+dist.broken-*/
+node_modules.broken-*/
+
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
