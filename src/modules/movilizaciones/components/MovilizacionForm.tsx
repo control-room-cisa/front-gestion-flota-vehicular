@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../../shared/auth/AuthContext";
 import { Modal } from "../../../shared/components/Modal";
 import { SearchableSelect } from "../../../shared/components/SearchableSelect";
@@ -20,6 +20,7 @@ import type {
   UltimaMovilizacionUnidadDto,
   UpdateMovilizacionDto,
 } from "../types/movilizacion.types";
+import { kmAsignadosEfectivos } from "../types/movilizacion.types";
 
 export interface MovilizacionFormProps {
   open: boolean;
@@ -64,7 +65,7 @@ type FormField =
   | "kmInicial"
   | "kmFinal"
   | "fecha"
-  | "empresaIds"
+  | "empresas"
   | "comentario";
 
 type FieldErrors = Partial<Record<FormField, string>>;
@@ -81,8 +82,8 @@ const API_FIELD_MAP: Record<string, FormField> = {
   comentario: "comentario",
   "data.unidadId": "unidad",
   unidadId: "unidad",
-  "data.empresaIds": "empresaIds",
-  empresaIds: "empresaIds",
+  "data.empresas": "empresas",
+  empresas: "empresas",
   "data.userId": "usuario",
   userId: "usuario",
 };
@@ -91,7 +92,9 @@ const mapApiErrors = (errors: ApiErrorDetail[]): FieldErrors => {
   const out: FieldErrors = {};
   for (const e of errors) {
     if (!e.field) continue;
-    const key = API_FIELD_MAP[e.field];
+    const key = API_FIELD_MAP[e.field] ?? (e.field.startsWith("data.empresas")
+      ? "empresas"
+      : undefined);
     if (key && !out[key]) out[key] = e.message;
   }
   return out;
@@ -135,6 +138,8 @@ export const MovilizacionForm = ({
   const [comentario, setComentario] = useState("");
   const [esViaje, setEsViaje] = useState(false);
   const [empresaIds, setEmpresaIds] = useState<number[]>([]);
+  /** km asignados por empresa (string controlado, mismo patrón que km ini/fin). */
+  const [empresaKm, setEmpresaKm] = useState<Record<number, string>>({});
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -142,6 +147,9 @@ export const MovilizacionForm = ({
     null,
   );
   const [ultimaCargando, setUltimaCargando] = useState(false);
+
+  /** Recorrido previo para sincronizar defaults al cambiar km ini/fin. */
+  const prevRecorridoRef = useRef<number | null>(null);
 
   // ---------------------------------------------------------------------------
   // Catálogos visibles: sólo activos. En edición conservamos el seleccionado
@@ -234,16 +242,29 @@ export const MovilizacionForm = ({
       setUsuarioSel(null);
     }
 
-    // Empresas:
-    //   - En edición: las que ya tenía el registro (todos los modos).
+    // Empresas + km asignados:
+    //   - En edición: las del registro (null → recorrido completo).
     //   - Creando + manager: pre-selecciona la empresa propia (si la tiene).
     //   - Creando + no-manager: el backend la inferirá; UI solo informa.
     if (initial) {
-      setEmpresaIds(initial.empresas.map((e) => e.id));
+      const rec =
+        initial.kilometrajeFinal - initial.kilometrajeInicial;
+      const ids = initial.empresas.map((e) => e.id);
+      const kmMap: Record<number, string> = {};
+      for (const e of initial.empresas) {
+        kmMap[e.id] = String(kmAsignadosEfectivos(e.kmAsignados, rec));
+      }
+      setEmpresaIds(ids);
+      setEmpresaKm(kmMap);
+      prevRecorridoRef.current = rec > 0 ? rec : null;
     } else if (isManager && usuario?.empresa) {
       setEmpresaIds([usuario.empresa.id]);
+      setEmpresaKm({});
+      prevRecorridoRef.current = null;
     } else {
       setEmpresaIds([]);
+      setEmpresaKm({});
+      prevRecorridoRef.current = null;
     }
   }, [open, initial, unidadesOptions, usuariosOptions, isManager, usuario]);
 
@@ -291,11 +312,69 @@ export const MovilizacionForm = ({
     };
   }, [open, unidad, fecha, initial?.id]);
 
+  const kmIniNum = parseIntegerInput(kmInicial);
+  const kmFinNum = parseIntegerInput(kmFinal);
+
+  const recorrido =
+    kmIniNum !== null && kmFinNum !== null && kmFinNum > kmIniNum
+      ? kmFinNum - kmIniNum
+      : null;
+
+  // Sincronizar km asignados cuando cambia el recorrido:
+  // - si estaba en el default anterior → nuevo recorrido
+  // - si supera el nuevo máximo → recortar
+  // - si no tenía valor → default al recorrido
+  useEffect(() => {
+    if (!open || !isManager) return;
+    if (recorrido === null) return;
+
+    const prev = prevRecorridoRef.current;
+    setEmpresaKm((prevMap) => {
+      let changed = false;
+      const next = { ...prevMap };
+      for (const id of empresaIds) {
+        const current = parseIntegerInput(prevMap[id] ?? "");
+        if (current === null || prevMap[id] === undefined || prevMap[id] === "") {
+          next[id] = String(recorrido);
+          changed = true;
+        } else if (prev !== null && current === prev) {
+          next[id] = String(recorrido);
+          changed = true;
+        } else if (current > recorrido) {
+          next[id] = String(recorrido);
+          changed = true;
+        }
+      }
+      return changed ? next : prevMap;
+    });
+    prevRecorridoRef.current = recorrido;
+  }, [open, isManager, recorrido, empresaIds]);
+
   const toggleEmpresa = (id: number) => {
-    clearField("empresaIds");
-    setEmpresaIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    clearField("empresas");
+    setEmpresaIds((prev) => {
+      if (prev.includes(id)) {
+        setEmpresaKm((km) => {
+          const next = { ...km };
+          delete next[id];
+          return next;
+        });
+        return prev.filter((x) => x !== id);
+      }
+      setEmpresaKm((km) => ({
+        ...km,
+        [id]: recorrido !== null ? String(recorrido) : "",
+      }));
+      return [...prev, id];
+    });
+  };
+
+  const setKmEmpresa = (id: number, value: string) => {
+    clearField("empresas");
+    setEmpresaKm((prev) => ({
+      ...prev,
+      [id]: sanitizeIntegerInput(value),
+    }));
   };
 
   const clearField = (field: FormField) => {
@@ -330,6 +409,16 @@ export const MovilizacionForm = ({
     showValidationToast(errs, toastMessage);
   };
 
+  // No-manager: la empresa siempre es la del usuario. Se muestra como info
+  // pero no entra al payload (el backend la inferirá).
+  const empresaPropia = !isManager ? (usuario?.empresa ?? null) : null;
+  const noTieneEmpresa = !isManager && !empresaPropia;
+
+  // En edición + no-manager: mostramos las empresas del registro existente
+  // (read-only), no la del usuario actual.
+  const empresasInitialNoManager =
+    !isManager && initial ? initial.empresas : null;
+
   const validateClient = (): FieldErrors => {
     const errs: FieldErrors = {};
 
@@ -345,8 +434,8 @@ export const MovilizacionForm = ({
     if (kmFin === null) {
       errs.kmFinal = "Ingresa un kilometraje final entero válido";
     }
-    if (kmIni !== null && kmFin !== null && kmFin < kmIni) {
-      errs.kmFinal = "El kilometraje final debe ser mayor o igual al inicial";
+    if (kmIni !== null && kmFin !== null && kmFin <= kmIni) {
+      errs.kmFinal = "El kilometraje final debe ser mayor al inicial";
     }
 
     if (!fecha.trim()) {
@@ -355,11 +444,27 @@ export const MovilizacionForm = ({
       errs.fecha = "Fecha inválida";
     }
 
-    if (isManager && empresaIds.length === 0) {
-      errs.empresaIds = "Selecciona al menos una empresa";
+    if (isManager) {
+      if (empresaIds.length === 0) {
+        errs.empresas = "Selecciona al menos una empresa";
+      } else if (recorrido !== null) {
+        let algunaCompleta = false;
+        for (const id of empresaIds) {
+          const km = parseIntegerInput(empresaKm[id] ?? "");
+          if (km === null || km < 1 || km > recorrido) {
+            errs.empresas = `Los km asignados deben ser un entero entre 1 y ${recorrido}`;
+            break;
+          }
+          if (km === recorrido) algunaCompleta = true;
+        }
+        if (!errs.empresas && !algunaCompleta) {
+          errs.empresas =
+            "Al menos una empresa debe tener todos los km del recorrido";
+        }
+      }
     }
     if (noTieneEmpresa) {
-      errs.empresaIds =
+      errs.empresas =
         "No tienes una empresa asignada. Contacta al administrador.";
     }
     if (!comentario.trim()) {
@@ -369,27 +474,9 @@ export const MovilizacionForm = ({
     return errs;
   };
 
-  // No-manager: la empresa siempre es la del usuario. Se muestra como info
-  // pero no entra al payload (el backend la inferirá).
-  const empresaPropia = !isManager ? (usuario?.empresa ?? null) : null;
-  const noTieneEmpresa = !isManager && !empresaPropia;
-
-  // En edición + no-manager: mostramos las empresas del registro existente
-  // (read-only), no la del usuario actual.
-  const empresasInitialNoManager =
-    !isManager && initial ? initial.empresas : null;
-
   // ---------------------------------------------------------------------------
-  // Cálculos derivados (recorrido + alertas).
+  // Cálculos derivados (alertas).
   // ---------------------------------------------------------------------------
-  const kmIniNum = parseIntegerInput(kmInicial);
-  const kmFinNum = parseIntegerInput(kmFinal);
-
-  const recorrido =
-    kmIniNum !== null && kmFinNum !== null && kmFinNum >= kmIniNum
-      ? kmFinNum - kmIniNum
-      : null;
-
   const recorridoAltoAlerta =
     recorrido !== null && recorrido > RECORRIDO_ALERTA_KM;
 
@@ -397,6 +484,8 @@ export const MovilizacionForm = ({
     ultima !== null &&
     kmIniNum !== null &&
     kmIniNum !== ultima.kilometrajeFinal;
+
+  const solaEmpresaSeleccionada = empresaIds.length === 1;
 
   // ---------------------------------------------------------------------------
   // Submit.
@@ -424,7 +513,10 @@ export const MovilizacionForm = ({
         unidadId: unidad!.id,
       };
       if (isManager) {
-        (payload as CreateMovilizacionDto).empresaIds = empresaIds;
+        (payload as CreateMovilizacionDto).empresas = empresaIds.map((id) => ({
+          empresaId: id,
+          kmAsignados: parseIntegerInput(empresaKm[id] ?? "")!,
+        }));
         if (usuarioSel)
           (payload as CreateMovilizacionDto).userId = usuarioSel.id;
         (payload as CreateMovilizacionDto).esViaje = esViaje;
@@ -459,6 +551,41 @@ export const MovilizacionForm = ({
       ? "border-amber-400 text-amber-800"
       : "border-slate-200 text-slate-700",
   ].join(" ");
+
+  const renderKmEmpresaInput = (empresaId: number, readOnly: boolean) => {
+    const value = empresaKm[empresaId] ?? "";
+    const kmNum = parseIntegerInput(value);
+    const hasLocalError =
+      Boolean(fieldErrors.empresas) &&
+      (value === "" ||
+        kmNum === null ||
+        (recorrido !== null && (kmNum < 1 || kmNum > recorrido)));
+
+    return (
+      <input
+        type="text"
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => setKmEmpresa(empresaId, e.target.value)}
+        readOnly={readOnly}
+        disabled={readOnly}
+        aria-label="Km asignados"
+        title={
+          readOnly
+            ? "Con una sola empresa se asigna la totalidad del recorrido"
+            : "Km asignados (1 … km recorridos)"
+        }
+        className={
+          "w-20 shrink-0 px-2 py-1 rounded border text-right font-mono text-sm outline-none " +
+          (readOnly
+            ? "bg-slate-100 border-slate-200 text-slate-700 cursor-not-allowed"
+            : hasLocalError
+              ? "border-red-400 bg-red-50/40 focus:ring-2 focus:ring-red-500"
+              : "border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500")
+        }
+      />
+    );
+  };
 
   return (
     <Modal
@@ -654,19 +781,22 @@ export const MovilizacionForm = ({
         {/* Empresas */}
         {isManager ? (
           <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <label className={labelClass(Boolean(fieldErrors.empresaIds))}>
+            <div className="flex items-center justify-between gap-2">
+              <label className={labelClass(Boolean(fieldErrors.empresas))}>
                 Empresas movilizadas
               </label>
               <span className="text-xs text-slate-500">
                 {empresaIds.length} seleccionada
                 {empresaIds.length === 1 ? "" : "s"}
+                {recorrido !== null
+                  ? ` · km recorridos: ${recorrido.toLocaleString("es-HN")}`
+                  : ""}
               </span>
             </div>
             <div
               className={
-                "border rounded-lg max-h-44 overflow-y-auto divide-y divide-slate-100 " +
-                (fieldErrors.empresaIds
+                "border rounded-lg max-h-56 overflow-y-auto divide-y divide-slate-100 " +
+                (fieldErrors.empresas
                   ? "border-red-400 bg-red-50/40"
                   : "border-slate-200")
               }
@@ -679,48 +809,85 @@ export const MovilizacionForm = ({
                 empresasActivas.map((e) => {
                   const checked = empresaIds.includes(e.id);
                   return (
-                    <label
+                    <div
                       key={e.id}
-                      className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-50"
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50"
                     >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleEmpresa(e.id)}
-                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className="text-sm text-slate-800">{e.nombre}</span>
-                      <span className="text-xs text-slate-500 font-mono ml-auto">
-                        {e.codigo}
-                      </span>
-                    </label>
+                      <label className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleEmpresa(e.id)}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-sm text-slate-800 min-w-0 flex-1 truncate">
+                          {e.nombre}
+                        </span>
+                        <span className="text-xs text-slate-500 font-mono shrink-0">
+                          {e.codigo}
+                        </span>
+                      </label>
+                      {checked && (
+                        <span className="flex items-center gap-1 shrink-0">
+                          <span className="text-[10px] uppercase tracking-wide text-slate-400">
+                            km
+                          </span>
+                          {renderKmEmpresaInput(
+                            e.id,
+                            solaEmpresaSeleccionada || recorrido === null,
+                          )}
+                        </span>
+                      )}
+                    </div>
                   );
                 })
               )}
             </div>
-            <FieldError message={fieldErrors.empresaIds} />
+            <FieldError message={fieldErrors.empresas} />
+            {solaEmpresaSeleccionada ? (
+              <span className="text-xs text-slate-500">
+                Con una sola empresa se asigna automáticamente la totalidad del
+                recorrido.
+              </span>
+            ) : empresaIds.length > 1 ? (
+              <span className="text-xs text-slate-500">
+                Al menos una empresa debe tener todos los km del recorrido.
+              </span>
+            ) : null}
           </div>
         ) : (
           <div className="flex flex-col gap-1">
-            <label className={labelClass(Boolean(fieldErrors.empresaIds))}>
+            <label className={labelClass(Boolean(fieldErrors.empresas))}>
               Empresa
             </label>
             {empresasInitialNoManager && empresasInitialNoManager.length > 0 ? (
               <div className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 flex flex-wrap gap-1">
-                {empresasInitialNoManager.map((e) => (
-                  <span
-                    key={e.id}
-                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700"
-                    title={e.codigo}
-                  >
-                    {e.nombre}
-                  </span>
-                ))}
+                {empresasInitialNoManager.map((e) => {
+                  const rec =
+                    initial!.kilometrajeFinal - initial!.kilometrajeInicial;
+                  const km = kmAsignadosEfectivos(e.kmAsignados, rec);
+                  return (
+                    <span
+                      key={e.id}
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700"
+                      title={e.codigo}
+                    >
+                      {e.nombre}
+                      <span className="font-mono text-indigo-500">
+                        {km.toLocaleString("es-HN")} km
+                      </span>
+                    </span>
+                  );
+                })}
               </div>
             ) : empresaPropia ? (
               <input
                 type="text"
-                value={empresaPropia.nombre}
+                value={
+                  recorrido !== null
+                    ? `${empresaPropia.nombre} · ${recorrido.toLocaleString("es-HN")} km`
+                    : empresaPropia.nombre
+                }
                 disabled
                 className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 cursor-not-allowed"
               />
@@ -730,9 +897,10 @@ export const MovilizacionForm = ({
                 registrar movilizaciones.
               </div>
             )}
-            <FieldError message={fieldErrors.empresaIds} />
+            <FieldError message={fieldErrors.empresas} />
             <span className="text-xs text-slate-500">
-              La empresa la asigna automáticamente el sistema según tu perfil.
+              La empresa la asigna automáticamente el sistema según tu perfil,
+              con la totalidad de km recorridos.
             </span>
           </div>
         )}

@@ -14,6 +14,18 @@ export interface MovilizacionEmpresaDto {
   id: number;
   codigo: string;
   nombre: string;
+  /**
+   * Km del recorrido asignados a esta empresa.
+   * `null` = registro histórico sin valor; en edición se interpreta como
+   * el recorrido completo de la movilización.
+   */
+  kmAsignados: number | null;
+}
+
+/** Asignación empresa + km al crear/actualizar (managers). */
+export interface MovilizacionEmpresaAsignacionDto {
+  empresaId: number;
+  kmAsignados: number;
 }
 
 export interface MovilizacionUnidadDto {
@@ -44,7 +56,11 @@ export interface CreateMovilizacionDto {
   kilometrajeFinal: number;
   comentario: string;
   unidadId: number;
-  empresaIds: number[];
+  /**
+   * Empresas y km asignados. Obligatorio para managers (mínimo 1).
+   * Los no-manager no lo envían: se infiere empresa propia con km = recorrido.
+   */
+  empresas?: MovilizacionEmpresaAsignacionDto[];
   /** Solo lo respetan controlroom / logistica / admin. */
   esViaje?: boolean;
   /** Sólo lo respetan los managers; los demás siempre son ellos mismos. */
@@ -57,7 +73,7 @@ export interface UpdateMovilizacionDto {
   kilometrajeFinal?: number;
   comentario?: string;
   unidadId?: number;
-  empresaIds?: number[];
+  empresas?: MovilizacionEmpresaAsignacionDto[];
   /** Solo lo respetan controlroom / logistica / admin. */
   esViaje?: boolean;
   userId?: number;
@@ -90,3 +106,46 @@ export interface MovilizacionListQuery {
   page?: number;
   pageSize?: number;
 }
+
+/** Km efectivos de una empresa (null histórico → recorrido completo). */
+export const kmAsignadosEfectivos = (
+  kmAsignados: number | null,
+  recorrido: number,
+): number => (kmAsignados === null ? recorrido : kmAsignados);
+
+export interface EmpresaPorcentajeDto {
+  id: number;
+  codigo: string;
+  nombre: string;
+  km: number;
+  /** Porcentaje sobre la suma de km asignados (no sobre el recorrido). */
+  porcentaje: number;
+}
+
+/**
+ * % de cada empresa = (kmEmpresa / sumaKmEmpresas) × 100.
+ * El denominador es la sumatoria de km asignados, no el recorrido.
+ */
+export const calcularPorcentajesEmpresas = (
+  empresas: MovilizacionEmpresaDto[],
+  recorrido: number,
+): EmpresaPorcentajeDto[] => {
+  const conKm = empresas.map((e) => ({
+    id: e.id,
+    codigo: e.codigo,
+    nombre: e.nombre,
+    km: kmAsignadosEfectivos(e.kmAsignados, recorrido),
+  }));
+  const total = conKm.reduce((acc, e) => acc + e.km, 0);
+  return conKm.map((e) => ({
+    ...e,
+    porcentaje: total > 0 ? (e.km / total) * 100 : 0,
+  }));
+};
+
+/** Formatea un porcentaje con 2 decimales (ej. 41.67%). */
+export const formatPorcentajeEmpresa = (porcentaje: number): string =>
+  `${porcentaje.toLocaleString("es-HN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}%`;

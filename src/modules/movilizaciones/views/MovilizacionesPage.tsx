@@ -26,6 +26,11 @@ import type {
   UpdateMovilizacionDto,
 } from "../types/movilizacion.types";
 import {
+  calcularPorcentajesEmpresas,
+  formatPorcentajeEmpresa,
+  kmAsignadosEfectivos,
+} from "../types/movilizacion.types";
+import {
   buildGroupedTableRows,
   type MovilizacionGroupBy,
 } from "../utils/movilizacion-table.utils";
@@ -46,6 +51,7 @@ const EXCEL_MOVILIZACIONES_HEADERS = [
   "Recorrido",
   "Es viaje",
   "Empresas",
+  "Porcentajes",
   "Comentario",
 ] as const;
 
@@ -498,24 +504,131 @@ export const MovilizacionesPage = () => {
         return;
       }
 
-      const filas = todos.map((m) => ({
-        "Fecha y hora": formatFechaExcel(m.fecha),
-        Vehículo: m.unidad.nombre,
-        Usuario: `${m.usuario.nombre} ${m.usuario.apellido}`.trim(),
-        Inicio: m.kilometrajeInicial,
-        Fin: m.kilometrajeFinal,
-        Recorrido: m.kilometrajeFinal - m.kilometrajeInicial,
-        "Es viaje": m.esViaje ? "Sí" : "No",
-        Empresas: m.empresas.map((e) => e.nombre).join(", "),
-        Comentario: m.comentario,
-      }));
+      type ExcelFila = {
+        "Fecha y hora": string;
+        Vehículo: string;
+        Usuario: string;
+        Inicio: number;
+        Fin: number;
+        Recorrido: number;
+        "Es viaje": string;
+        Empresas: string;
+        /** Texto con todas las empresas, o número decimal al agrupar por empresa. */
+        Porcentajes: string | number;
+        Comentario: string;
+      };
+
+      const filas: ExcelFila[] = [];
+      const esViajePorFila: boolean[] = [];
+
+      const camposComunes = (
+        m: MovilizacionDto,
+      ): Omit<ExcelFila, "Empresas" | "Porcentajes"> & { recorrido: number } => {
+        const recorrido = m.kilometrajeFinal - m.kilometrajeInicial;
+        return {
+          "Fecha y hora": formatFechaExcel(m.fecha),
+          Vehículo: m.unidad.nombre,
+          Usuario: `${m.usuario.nombre} ${m.usuario.apellido}`.trim(),
+          Inicio: m.kilometrajeInicial,
+          Fin: m.kilometrajeFinal,
+          Recorrido: recorrido,
+          "Es viaje": m.esViaje ? "Sí" : "No",
+          Comentario: m.comentario,
+          recorrido,
+        };
+      };
+
+      if (groupBy === "empresa") {
+        // Una fila por (movilización, empresa del grupo), con % numérico
+        // solo de esa empresa: (kmEmpresa / sumaKmEmpresas) × 100.
+        const agrupadas = buildGroupedTableRows(todos, "empresa");
+        let empresaGrupoId: string | null = null;
+
+        for (const row of agrupadas) {
+          if (row.kind === "group") {
+            empresaGrupoId = row.id;
+            continue;
+          }
+
+          const m = row.mov;
+          const { recorrido, ...comunes } = camposComunes(m);
+          const porcentajes = calcularPorcentajesEmpresas(
+            m.empresas,
+            recorrido,
+          );
+
+          if (empresaGrupoId === null || empresaGrupoId === "sin-empresa") {
+            filas.push({
+              ...comunes,
+              Empresas: "—",
+              Porcentajes: "",
+            });
+          } else {
+            const empId = Number(empresaGrupoId);
+            const emp = m.empresas.find((e) => e.id === empId);
+            const pct = porcentajes.find((e) => e.id === empId);
+            const km = emp
+              ? kmAsignadosEfectivos(emp.kmAsignados, recorrido)
+              : null;
+            filas.push({
+              ...comunes,
+              Empresas:
+                emp && km !== null
+                  ? `${emp.nombre} (${km.toLocaleString("es-HN")} km)`
+                  : "—",
+              Porcentajes:
+                pct !== undefined
+                  ? Math.round(pct.porcentaje * 100) / 100
+                  : "",
+            });
+          }
+          esViajePorFila.push(m.esViaje);
+        }
+      } else {
+        for (const m of todos) {
+          const { recorrido, ...comunes } = camposComunes(m);
+          const porcentajes = calcularPorcentajesEmpresas(
+            m.empresas,
+            recorrido,
+          );
+          filas.push({
+            ...comunes,
+            Empresas: m.empresas
+              .map((e) => {
+                const km = kmAsignadosEfectivos(e.kmAsignados, recorrido);
+                return `${e.nombre} (${km.toLocaleString("es-HN")} km)`;
+              })
+              .join(", "),
+            Porcentajes: porcentajes
+              .map(
+                (e) =>
+                  `${e.nombre} (${formatPorcentajeEmpresa(e.porcentaje)})`,
+              )
+              .join(", "),
+          });
+          esViajePorFila.push(m.esViaje);
+        }
+      }
 
       const ws = XLSX.utils.json_to_sheet(filas, {
         header: [...EXCEL_MOVILIZACIONES_HEADERS],
       });
 
-      todos.forEach((m, i) => {
-        if (m.esViaje) {
+      // Al agrupar por empresa, Porcentajes es número: fuerza tipo y 2 decimales.
+      if (groupBy === "empresa") {
+        const pctCol = EXCEL_MOVILIZACIONES_HEADERS.indexOf("Porcentajes");
+        for (let i = 0; i < filas.length; i++) {
+          const addr = XLSX.utils.encode_cell({ r: i + 1, c: pctCol });
+          const cell = ws[addr];
+          if (cell && typeof cell.v === "number") {
+            cell.t = "n";
+            cell.z = "0.00";
+          }
+        }
+      }
+
+      esViajePorFila.forEach((esViaje, i) => {
+        if (esViaje) {
           aplicarEstiloFilaViajeExcel(
             ws,
             i + 1,
@@ -535,6 +648,7 @@ export const MovilizacionesPage = () => {
         { wch: 12 }, // Recorrido
         { wch: 10 }, // Es viaje
         { wch: 40 }, // Empresas
+        { wch: groupBy === "empresa" ? 12 : 40 }, // Porcentajes
         { wch: 50 }, // Comentario
       ];
 
@@ -549,7 +663,7 @@ export const MovilizacionesPage = () => {
           : hoyISO();
       XLSX.writeFile(wb, `movilizaciones_${sufijo}.xlsx`);
       toast.success(
-        `Se exportaron ${todos.length} movilizacion${todos.length === 1 ? "" : "es"}.`,
+        `Se exportaron ${filas.length} fila${filas.length === 1 ? "" : "s"} (${todos.length} movilizacion${todos.length === 1 ? "" : "es"}).`,
         "Excel generado",
       );
     } catch (err) {
@@ -985,6 +1099,12 @@ export const MovilizacionesPage = () => {
                   </th>
                   <th
                     className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}
+                    title="Porcentaje de cada empresa sobre la suma de km asignados"
+                  >
+                    Porcentajes
+                  </th>
+                  <th
+                    className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}
                   >
                     Comentario
                   </th>
@@ -1003,7 +1123,7 @@ export const MovilizacionesPage = () => {
                 {loading ? (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={11}
                       className="px-4 py-8 text-center text-slate-500"
                     >
                       Cargando...
@@ -1012,7 +1132,7 @@ export const MovilizacionesPage = () => {
                 ) : movilizaciones.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={11}
                       className="px-4 py-8 text-center text-slate-500"
                     >
                       Sin registros para los filtros aplicados.
@@ -1027,7 +1147,7 @@ export const MovilizacionesPage = () => {
                           className="bg-indigo-50/80 border-y border-indigo-100"
                         >
                           <td
-                            colSpan={10}
+                            colSpan={11}
                             className="px-4 py-2.5 text-sm font-semibold text-indigo-900"
                           >
                             {row.label}
@@ -1135,16 +1255,52 @@ export const MovilizacionesPage = () => {
                             className={`px-4 py-3 text-sm text-slate-800 ${COL_LG}`}
                           >
                             <div className="flex flex-wrap gap-1">
-                              {m.empresas.map((e) => (
-                                <span
-                                  key={e.id}
-                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700"
-                                  title={e.codigo}
-                                >
-                                  {e.nombre}
-                                </span>
-                              ))}
+                              {m.empresas.map((e) => {
+                                const km = kmAsignadosEfectivos(
+                                  e.kmAsignados,
+                                  recorrido,
+                                );
+                                return (
+                                  <span
+                                    key={e.id}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700"
+                                    title={`${e.codigo} · ${km.toLocaleString("es-HN")} km`}
+                                  >
+                                    {e.nombre}
+                                    <span className="font-mono text-indigo-500">
+                                      {km.toLocaleString("es-HN")}
+                                    </span>
+                                  </span>
+                                );
+                              })}
                             </div>
+                          </td>
+                          <td
+                            className={`px-4 py-3 text-sm text-slate-800 ${COL_LG}`}
+                          >
+                            {m.empresas.length === 0 ? (
+                              <span className="text-slate-400">—</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1">
+                                {calcularPorcentajesEmpresas(
+                                  m.empresas,
+                                  recorrido,
+                                ).map((e) => (
+                                  <span
+                                    key={e.id}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-800"
+                                    title={`${e.nombre}: ${e.km.toLocaleString("es-HN")} km / suma → ${formatPorcentajeEmpresa(e.porcentaje)}`}
+                                  >
+                                    <span className="truncate max-w-[6rem]">
+                                      {e.nombre}
+                                    </span>
+                                    <span className="font-mono text-emerald-600 shrink-0">
+                                      {formatPorcentajeEmpresa(e.porcentaje)}
+                                    </span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </td>
                           <td
                             className={`px-4 py-3 text-sm text-slate-700 max-w-[16rem] cursor-help ${COL_LG}`}
@@ -1248,7 +1404,7 @@ export const MovilizacionesPage = () => {
                         {gap && (
                           <tr className="bg-red-50">
                             <td
-                              colSpan={10}
+                              colSpan={11}
                               className="px-4 py-2.5 text-sm text-red-700 border-l-4 border-l-red-400"
                             >
                               <div className="flex items-center justify-center gap-2 text-center">

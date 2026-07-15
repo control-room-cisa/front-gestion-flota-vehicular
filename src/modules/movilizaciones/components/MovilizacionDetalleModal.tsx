@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Modal } from "../../../shared/components/Modal";
 import type { MovilizacionDto } from "../types/movilizacion.types";
+import { kmAsignadosEfectivos } from "../types/movilizacion.types";
 
 const formatFechaCompleta = (iso: string): string =>
   new Date(iso).toLocaleString("es-HN", {
@@ -119,15 +120,21 @@ export const MovilizacionDetalleModal = ({
             <span className="text-slate-500">—</span>
           ) : (
             <div className="flex flex-wrap gap-1">
-              {movilizacion.empresas.map((e) => (
-                <span
-                  key={e.id}
-                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700"
-                  title={e.codigo}
-                >
-                  {e.nombre}
-                </span>
-              ))}
+              {movilizacion.empresas.map((e) => {
+                const km = kmAsignadosEfectivos(e.kmAsignados, recorrido);
+                return (
+                  <span
+                    key={e.id}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700"
+                    title={`${e.codigo} · ${km.toLocaleString("es-HN")} km asignados`}
+                  >
+                    {e.nombre}
+                    <span className="font-mono text-indigo-500">
+                      {km.toLocaleString("es-HN")} km
+                    </span>
+                  </span>
+                );
+              })}
             </div>
           )}
         </DetalleRow>
