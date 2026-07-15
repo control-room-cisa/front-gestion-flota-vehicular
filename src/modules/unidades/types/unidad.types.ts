@@ -32,6 +32,11 @@ export interface UnidadDto {
   categoria: UnidadCategoriaDto;
   tipoMedicion: TipoMedicion;
   tipoCombustible: TipoCombustible;
+  /**
+   * Costo de mantenimiento por km. String para preservar 2 decimales.
+   * `null` = sin valor definido.
+   */
+  costoMantenimiento: string | null;
 }
 
 export interface CreateUnidadDto {
@@ -40,6 +45,7 @@ export interface CreateUnidadDto {
   categoriaId: number;
   tipoMedicion: TipoMedicion;
   tipoCombustible: TipoCombustible;
+  costoMantenimiento?: number | null;
 }
 
 export interface UpdateUnidadDto {
@@ -49,4 +55,18 @@ export interface UpdateUnidadDto {
   categoriaId?: number;
   tipoMedicion?: TipoMedicion;
   tipoCombustible?: TipoCombustible;
+  costoMantenimiento?: number | null;
 }
+
+/** Formatea costo / km para tabla (2 decimales). */
+export const formatCostoMantenimiento = (
+  value: string | null | undefined,
+): string => {
+  if (value === null || value === undefined || value === '') return '—';
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString('es-HN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};

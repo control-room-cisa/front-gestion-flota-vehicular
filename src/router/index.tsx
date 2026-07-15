@@ -20,6 +20,7 @@ import {
   CONSTRUCCION_ACCESS_ROLES,
   DISPENSADO_MANAGER_ROLES,
   REPORTES_ACCESS_ROLES,
+  UNIDADES_ACCESS_ROLES,
 } from '../shared/types/roles.types';
 import { AppLayout } from '../shared/components/AppLayout';
 import type { AppRouteHandle } from '../shared/components/AppLayout';
@@ -76,7 +77,7 @@ export const router = createBrowserRouter([
       {
         path: '/unidades',
         element: (
-          <ProtectedRoute allowed={['logistica', 'admin']}>
+          <ProtectedRoute allowed={UNIDADES_ACCESS_ROLES}>
             <UnidadesPage />
           </ProtectedRoute>
         ),

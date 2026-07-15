@@ -3,6 +3,7 @@ import {
   CONFIGURACIONES_ACCESS_ROLES,
   CONSTRUCCION_ACCESS_ROLES,
   REPORTES_ACCESS_ROLES,
+  UNIDADES_ACCESS_ROLES,
   type RolNombre,
 } from '../types/roles.types';
 
@@ -56,7 +57,7 @@ export const APP_MODULES: AppModule[] = [
     label: 'Reportes',
     allowed: REPORTES_ACCESS_ROLES,
   },
-  { path: '/unidades', label: 'Unidades', allowed: ['logistica', 'admin'] },
+  { path: '/unidades', label: 'Unidades', allowed: UNIDADES_ACCESS_ROLES },
   { path: '/categorias', label: 'Categorías', allowed: ['logistica', 'admin'] },
 ];
 

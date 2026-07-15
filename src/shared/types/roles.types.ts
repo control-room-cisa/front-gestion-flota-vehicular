@@ -109,6 +109,40 @@ export const canEditDispensadoPrecio = (
   userRoles: RolNombre[] | undefined,
 ): boolean => hasRole(userRoles, DISPENSADO_PRECIO_EDIT_ROLES);
 
+/**
+ * Roles que pueden editar el costo de mantenimiento / km de una unidad.
+ */
+export const UNIDAD_COSTO_MANTENIMIENTO_EDIT_ROLES: RolNombre[] = [
+  'logistica',
+  'contabilidad',
+  'admin',
+];
+
+export const canEditUnidadCostoMantenimiento = (
+  userRoles: RolNombre[] | undefined,
+): boolean => hasRole(userRoles, UNIDAD_COSTO_MANTENIMIENTO_EDIT_ROLES);
+
+/**
+ * Roles con gestión completa del catálogo de unidades (crear/eliminar/resto de campos).
+ * Contabilidad solo puede editar `costoMantenimiento`.
+ */
+export const UNIDAD_MANAGE_ROLES: RolNombre[] = ['logistica', 'admin'];
+
+export const canManageUnidades = (
+  userRoles: RolNombre[] | undefined,
+): boolean => hasRole(userRoles, UNIDAD_MANAGE_ROLES);
+
+/** Acceso al módulo Unidades (incluye contabilidad para el costo / km). */
+export const UNIDADES_ACCESS_ROLES: RolNombre[] = [
+  'logistica',
+  'contabilidad',
+  'admin',
+];
+
+export const canAccessUnidades = (
+  userRoles: RolNombre[] | undefined,
+): boolean => hasRole(userRoles, UNIDADES_ACCESS_ROLES);
+
 /** Acceso al módulo de configuraciones del sistema. */
 export const CONFIGURACIONES_ACCESS_ROLES: RolNombre[] = ['admin'];
 
