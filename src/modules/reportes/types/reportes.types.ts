@@ -42,3 +42,67 @@ export interface KilometrajeActualUnidadDto {
 export interface KilometrajesActualesDto {
   unidades: KilometrajeActualUnidadDto[];
 }
+
+export interface UsoPorEmpresaLlenadoDto {
+  id: number;
+  fecha: string;
+  kilometraje: number;
+  cantidadGalones: string;
+  precioGalon: string;
+  costo: number;
+}
+
+export interface UsoPorEmpresaEmpresaDto {
+  id: number;
+  codigo: string;
+  nombre: string;
+  kmAsignados: number | null;
+}
+
+export interface UsoPorEmpresaItemDto {
+  id: number;
+  fecha: string;
+  kilometrajeInicial: number;
+  kilometrajeFinal: number;
+  recorrido: number;
+  esViaje: boolean;
+  comentario: string;
+  usuario: {
+    id: number;
+    codigo_empleado: string;
+    nombre: string;
+    apellido: string;
+  };
+  unidad: {
+    id: number;
+    nombre: string;
+    clase: string;
+    costoMantenimiento: string | null;
+  };
+  empresas: UsoPorEmpresaEmpresaDto[];
+  combustiblePorKm: number | null;
+  mantenimientoPorKm: number;
+  costoPorKm: number | null;
+  costoMovilizacionTotal: number | null;
+  llenadoSuperior: UsoPorEmpresaLlenadoDto | null;
+  llenadoInferior: UsoPorEmpresaLlenadoDto | null;
+  kmEntreLlenados: number | null;
+}
+
+export interface UsoPorEmpresaDto {
+  desde: string;
+  hasta: string;
+  items: UsoPorEmpresaItemDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface UsoPorEmpresaQuery {
+  desde?: string;
+  hasta?: string;
+  unidadId?: number;
+  empresaId?: number;
+  page?: number;
+  pageSize?: number;
+}
