@@ -1053,8 +1053,8 @@ export const MovilizacionesPage = () => {
         )}
 
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto lg:overflow-visible overscroll-x-contain [-webkit-overflow-scrolling:touch]">
-            <table className="w-full divide-y divide-slate-200">
+          <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+            <table className="min-w-[1100px] w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
                   <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
@@ -1099,12 +1099,6 @@ export const MovilizacionesPage = () => {
                   </th>
                   <th
                     className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}
-                    title="Porcentaje de cada empresa sobre la suma de km asignados"
-                  >
-                    Porcentajes
-                  </th>
-                  <th
-                    className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 ${COL_LG}`}
                   >
                     Comentario
                   </th>
@@ -1123,7 +1117,7 @@ export const MovilizacionesPage = () => {
                 {loading ? (
                   <tr>
                     <td
-                      colSpan={11}
+                      colSpan={10}
                       className="px-4 py-8 text-center text-slate-500"
                     >
                       Cargando...
@@ -1132,7 +1126,7 @@ export const MovilizacionesPage = () => {
                 ) : movilizaciones.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={11}
+                      colSpan={10}
                       className="px-4 py-8 text-center text-slate-500"
                     >
                       Sin registros para los filtros aplicados.
@@ -1147,7 +1141,7 @@ export const MovilizacionesPage = () => {
                           className="bg-indigo-50/80 border-y border-indigo-100"
                         >
                           <td
-                            colSpan={11}
+                            colSpan={10}
                             className="px-4 py-2.5 text-sm font-semibold text-indigo-900"
                           >
                             {row.label}
@@ -1276,33 +1270,6 @@ export const MovilizacionesPage = () => {
                             </div>
                           </td>
                           <td
-                            className={`px-4 py-3 text-sm text-slate-800 ${COL_LG}`}
-                          >
-                            {m.empresas.length === 0 ? (
-                              <span className="text-slate-400">—</span>
-                            ) : (
-                              <div className="flex flex-wrap gap-1">
-                                {calcularPorcentajesEmpresas(
-                                  m.empresas,
-                                  recorrido,
-                                ).map((e) => (
-                                  <span
-                                    key={e.id}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-800"
-                                    title={`${e.nombre}: ${e.km.toLocaleString("es-HN")} km / suma → ${formatPorcentajeEmpresa(e.porcentaje)}`}
-                                  >
-                                    <span className="truncate max-w-[6rem]">
-                                      {e.nombre}
-                                    </span>
-                                    <span className="font-mono text-emerald-600 shrink-0">
-                                      {formatPorcentajeEmpresa(e.porcentaje)}
-                                    </span>
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </td>
-                          <td
                             className={`px-4 py-3 text-sm text-slate-700 max-w-[16rem] cursor-help ${COL_LG}`}
                             onMouseEnter={(e) =>
                               showCommentTooltip(e, m.comentario)
@@ -1404,7 +1371,7 @@ export const MovilizacionesPage = () => {
                         {gap && (
                           <tr className="bg-red-50">
                             <td
-                              colSpan={11}
+                              colSpan={10}
                               className="px-4 py-2.5 text-sm text-red-700 border-l-4 border-l-red-400"
                             >
                               <div className="flex items-center justify-center gap-2 text-center">
