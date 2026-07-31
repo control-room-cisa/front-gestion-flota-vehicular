@@ -324,6 +324,9 @@ export const UsoPorEmpresaTab = () => {
       };
 
       const todos: UsoPorEmpresaItemDto[] = [];
+      const todosErrores: NonNullable<
+        Awaited<ReturnType<typeof reportesService.usoPorEmpresa>>["errores"]
+      > = [];
       let pagina = 1;
       let totalRegistros = 0;
       do {
@@ -332,12 +335,41 @@ export const UsoPorEmpresaTab = () => {
           page: pagina,
         });
         todos.push(...res.items);
+        todosErrores.push(...(res.errores ?? []));
         totalRegistros = res.total;
         if (res.items.length === 0) break;
         pagina += 1;
       } while (todos.length < totalRegistros);
 
       setAllItems(todos);
+
+      if (todosErrores.length > 0) {
+        const unicos = [
+          ...new Map(
+            todosErrores.map((e) => [
+              `${e.dispensadoId}-${e.fechaDispensado.slice(0, 10)}-${e.tipoCombustible}`,
+              e,
+            ]),
+          ).values(),
+        ];
+        const preview = unicos
+          .slice(0, 3)
+          .map(
+            (e) =>
+              `• ${e.unidadNombre} (${e.tipoCombustible}) · ${e.fechaDispensado.slice(0, 10)}`,
+          )
+          .join("\n");
+        const extra =
+          unicos.length > 3
+            ? `\n… y ${unicos.length - 3} más`
+            : "";
+        toast.show({
+          variant: "warning",
+          title: "Precios no disponibles",
+          message: `${unicos.length} dispensado${unicos.length === 1 ? "" : "s"} sin precio vigente:\n${preview}${extra}`,
+          duration: 5000,
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar reporte");
       setAllItems([]);
@@ -630,10 +662,12 @@ export const UsoPorEmpresaTab = () => {
       )}
 
       <p className="text-xs text-slate-500">
-        Costo/km = (costo llenado superior ÷ km entre llenados) + costo
-        mantenimiento/km. Sin agrupar: costo movilización = costo/km ×
-        recorrido. Agrupado por empresa: costo/km × km asignados de esa
-        empresa.
+        Costo/km = (costo llenado superior ÷ (km superior − km anterior)) +
+        costo mantenimiento/km. El costo del llenado superior usa el precio del
+        dispensado si es fuera de empresa; si no, el precio vigente del catálogo
+        (fecha + tipo de combustible). Sin agrupar: costo movilización =
+        costo/km × recorrido. Agrupado por empresa: costo/km × km asignados de
+        esa empresa.
       </p>
 
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
@@ -748,7 +782,14 @@ export const UsoPorEmpresaTab = () => {
                   return (
                     <tr
                       key={row.rowKey}
-                      className={m.esViaje ? "bg-red-50/40" : undefined}
+                      className={
+                        m.errorCosto
+                          ? "bg-red-100/70"
+                          : m.esViaje
+                            ? "bg-red-50/40"
+                            : undefined
+                      }
+                      title={m.errorCosto ?? undefined}
                     >
                       <td className="px-3 lg:px-4 py-3 text-sm text-slate-800 whitespace-nowrap">
                         {formatFecha(m.fecha)}
@@ -810,7 +851,15 @@ export const UsoPorEmpresaTab = () => {
                             L {formatMoney(m.costoPorKm, 4)}
                           </span>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span
+                            className={
+                              m.errorCosto
+                                ? "text-red-600 font-semibold"
+                                : "text-slate-400"
+                            }
+                          >
+                            —
+                          </span>
                         )}
                       </td>
                       <td className="px-2 py-3 text-sm font-mono text-right text-slate-800 whitespace-nowrap">
@@ -895,20 +944,20 @@ export const UsoPorEmpresaTab = () => {
             </div>
             <p>
               {formatLlenadoTooltip(
-                "Llenado inferior",
+                "Dispensado anterior",
                 costoHover.item.llenadoInferior,
               )}
             </p>
             <p>
               {formatLlenadoTooltip(
-                "Llenado superior",
+                "Dispensado superior",
                 costoHover.item.llenadoSuperior,
               )}
             </p>
             {costoHover.item.kmEntreLlenados !== null &&
               costoHover.item.llenadoSuperior && (
                 <p className="text-slate-600">
-                  Km entre llenados:{" "}
+                  Km entre dispensados:{" "}
                   <span className="font-mono">
                     {costoHover.item.kmEntreLlenados.toLocaleString("es-HN")}
                   </span>
@@ -924,10 +973,16 @@ export const UsoPorEmpresaTab = () => {
                   </span>
                 </p>
               )}
-            {costoHover.item.costoPorKm === null && (
+            {costoHover.item.errorCosto && (
+              <p className="text-red-700 font-medium">
+                {costoHover.item.errorCosto}
+              </p>
+            )}
+            {costoHover.item.costoPorKm === null &&
+              !costoHover.item.errorCosto && (
               <p className="text-amber-700">
-                No se pudo calcular: faltan llenados inferior/superior o el
-                tramo de km es inválido.
+                No se pudo calcular: faltan dispensados anterior/superior por
+                fecha, o el tramo de km entre ellos no es positivo.
               </p>
             )}
           </div>,

@@ -4,6 +4,8 @@ import { DispensadosPage } from '../modules/dispensados/views/DispensadosPage';
 import { EmpresasPage } from '../modules/empresas/views/EmpresasPage';
 import { MovilizacionesPage } from '../modules/movilizaciones/views/MovilizacionesPage';
 import { ReportesPage } from '../modules/reportes/views/ReportesPage';
+import { UsoPorEmpresaTab } from '../modules/reportes/components/UsoPorEmpresaTab';
+import { UsoRendimientosTab } from '../modules/reportes/components/UsoRendimientosTab';
 import { UsuariosPage } from '../modules/usuarios/views/UsuariosPage';
 import { CategoriasPage } from '../modules/categorias/views/CategoriasPage';
 import { UnidadesPage } from '../modules/unidades/views/UnidadesPage';
@@ -73,6 +75,20 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         ),
         ...h({ title: 'Reportes', subtitle: 'Rendimiento y operación' }),
+        children: [
+          {
+            index: true,
+            element: <Navigate to="uso-rendimientos" replace />,
+          },
+          {
+            path: 'uso-rendimientos',
+            element: <UsoRendimientosTab />,
+          },
+          {
+            path: 'uso-empresa',
+            element: <UsoPorEmpresaTab />,
+          },
+        ],
       },
       {
         path: '/unidades',

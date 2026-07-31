@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useAuth } from "../../../shared/auth/AuthContext";
 import { Modal } from "../../../shared/components/Modal";
-import { canEditDispensadoPrecio } from "../../../shared/types/roles.types";
 import { SearchableSelect } from "../../../shared/components/SearchableSelect";
 import {
   parseDecimalInput,
@@ -9,7 +7,6 @@ import {
   sanitizeDecimalInput,
   sanitizeIntegerInput,
 } from "../../../shared/utils/numeric-input";
-import { precioCombustibleService } from "../../combustible/services/precio-combustible.service";
 import { movilizacionService } from "../../movilizaciones/services/movilizacion.service";
 import type { UltimaMovilizacionUnidadDto } from "../../movilizaciones/types/movilizacion.types";
 import type { UnidadDto } from "../../unidades/types/unidad.types";
@@ -58,8 +55,6 @@ export const DispensadoForm = ({
   onClose,
   onSubmit,
 }: DispensadoFormProps) => {
-  const { usuario } = useAuth();
-  const puedeEditarPrecio = canEditDispensadoPrecio(usuario?.roles);
   const editing = Boolean(initial);
 
   const [fecha, setFecha] = useState("");
@@ -67,8 +62,7 @@ export const DispensadoForm = ({
   const [kilometraje, setKilometraje] = useState("");
   const [cantidadGalones, setCantidadGalones] = useState("");
   const [precioGalon, setPrecioGalon] = useState("");
-  const [precioCargando, setPrecioCargando] = useState(false);
-  const [precioSinVigencia, setPrecioSinVigencia] = useState(false);
+  const [dispensadoFueraEmpresa, setDispensadoFueraEmpresa] = useState(false);
   const [observaciones, setObservaciones] = useState("");
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
@@ -98,8 +92,10 @@ export const DispensadoForm = ({
     setObservaciones(initial?.observaciones ?? "");
     setError(undefined);
     setUltimaMov(null);
-    setPrecioGalon("");
-    setPrecioSinVigencia(false);
+
+    const fuera = initial?.dispensadoFueraEmpresa ?? false;
+    setDispensadoFueraEmpresa(fuera);
+    setPrecioGalon(fuera && initial ? initial.precioGalon : "");
 
     if (initial) {
       setUnidad(
@@ -109,40 +105,6 @@ export const DispensadoForm = ({
       setUnidad(null);
     }
   }, [open, initial, unidadesOptions]);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const fechaDia = fecha.slice(0, 10);
-    if (!unidad || !/^\d{4}-\d{2}-\d{2}$/.test(fechaDia)) {
-      setPrecioCargando(false);
-      setPrecioSinVigencia(false);
-      if (!unidad) setPrecioGalon("");
-      return;
-    }
-
-    let cancelled = false;
-    setPrecioCargando(true);
-    setPrecioSinVigencia(false);
-    precioCombustibleService
-      .getVigente(fechaDia, unidad.tipoCombustible)
-      .then((precio) => {
-        if (!cancelled) setPrecioGalon(precio.precioGalon);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPrecioGalon("0");
-          setPrecioSinVigencia(true);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setPrecioCargando(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, fecha, unidad]);
 
   // Al cambiar el vehículo (SOLO en alta): traemos la última movilización
   // del vehículo para alimentar la alerta de continuidad de creación.
@@ -179,7 +141,10 @@ export const DispensadoForm = ({
   const cantidadNum = parseDecimalInput(cantidadGalones);
   const precioNum = parseDecimalInput(precioGalon);
   const total =
-    cantidadNum !== null && precioNum !== null && cantidadNum > 0
+    dispensadoFueraEmpresa &&
+    cantidadNum !== null &&
+    precioNum !== null &&
+    cantidadNum > 0
       ? cantidadNum * precioNum
       : null;
 
@@ -211,6 +176,11 @@ export const DispensadoForm = ({
       (continuidadEdicion.nextKmInicial !== null &&
         continuidadEdicion.nextKmInicial !== kmNum));
 
+  const handleFueraEmpresaChange = (checked: boolean) => {
+    setDispensadoFueraEmpresa(checked);
+    if (!checked) setPrecioGalon("");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(undefined);
@@ -230,13 +200,14 @@ export const DispensadoForm = ({
       setError("La cantidad de galones debe ser mayor a 0");
       return;
     }
-    if (precioCargando) {
-      setError("Espera a que se cargue el precio de combustible");
-      return;
-    }
-    if (precioNum === null || precioNum < 0) {
-      setError("El precio por galón es inválido");
-      return;
+
+    let precioFinal = 0;
+    if (dispensadoFueraEmpresa) {
+      if (precioNum === null || precioNum < 0) {
+        setError("El precio por galón es inválido");
+        return;
+      }
+      precioFinal = precioNum;
     }
 
     const obsTrim = observaciones.trim();
@@ -251,7 +222,8 @@ export const DispensadoForm = ({
         fecha: fromLocalInput(fecha),
         kilometraje: km,
         cantidadGalones: cantidadNum,
-        precioGalon: precioNum,
+        precioGalon: precioFinal,
+        dispensadoFueraEmpresa,
         unidadId: unidad.id,
         observaciones: obsTrim.length > 0 ? obsTrim : null,
       };
@@ -266,9 +238,8 @@ export const DispensadoForm = ({
   const totalInputClass =
     "px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 cursor-not-allowed font-mono";
 
-  const precioInputClass = puedeEditarPrecio
-    ? "px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono"
-    : `${totalInputClass} outline-none`;
+  const precioInputClass =
+    "px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono";
 
   return (
     <Modal
@@ -353,10 +324,6 @@ export const DispensadoForm = ({
         </div>
 
         {/* Alerta informativa de continuidad — no bloquea el submit. */}
-        {/*
-          Alta: comparamos contra el kilometraje final de la última
-          movilización registrada del vehículo.
-        */}
         {!editing &&
           unidad &&
           !ultimaCargando &&
@@ -374,11 +341,6 @@ export const DispensadoForm = ({
             </div>
           )}
 
-        {/*
-          Edición: misma alerta que muestra la tabla. Compara contra las
-          movilizaciones que rodean al dispensado (prev por fecha < disp,
-          next por fecha > disp). Si alguno no coincide, mostramos detalle.
-        */}
         {editing && continuidadEdicion && continuidadEdicionAlerta && (
           <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-sm space-y-1">
             <div>
@@ -414,8 +376,38 @@ export const DispensadoForm = ({
           </div>
         )}
 
+        {/* Dispensado fuera de empresa */}
+        <div className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-3">
+          <input
+            id="dispensado-fuera-empresa"
+            type="checkbox"
+            checked={dispensadoFueraEmpresa}
+            onChange={(e) => handleFueraEmpresaChange(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+          />
+          <label
+            htmlFor="dispensado-fuera-empresa"
+            className="cursor-pointer min-w-0"
+          >
+            <span className="block text-sm font-semibold text-slate-800">
+              Dispensado fuera de empresa
+            </span>
+            <span className="block mt-1 text-xs leading-relaxed text-slate-500">
+              Marcar si el combustible se cargó en una estación externa. En ese
+              caso el precio por galón se ingresa manualmente; si no, se usa el
+              catálogo de precios vigente.
+            </span>
+          </label>
+        </div>
+
         {/* Combustible */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div
+          className={
+            dispensadoFueraEmpresa
+              ? "grid grid-cols-1 sm:grid-cols-3 gap-4"
+              : "grid grid-cols-1 gap-4"
+          }
+        >
           <div className="flex flex-col gap-1">
             <label className="text-sm font-semibold text-slate-700">
               Cantidad (galones)
@@ -431,43 +423,48 @@ export const DispensadoForm = ({
               className="px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono"
             />
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-semibold text-slate-700">
-              Precio por galón
-            </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={precioCargando ? "Cargando…" : precioGalon}
-              onChange={(e) =>
-                setPrecioGalon(sanitizeDecimalInput(e.target.value))
-              }
-              readOnly={!puedeEditarPrecio || precioCargando}
-              required
-              className={precioInputClass}
-            />
-            {precioSinVigencia && unidad && !precioCargando && (
-              <span className="text-xs text-amber-700">
-                No hay precio vigente para esta fecha y tipo de combustible (
-                {unidad.tipoCombustible === "DIESEL" ? "diesel" : "gasolina"}
-                ); se registrará con precio L 0.00.
-              </span>
-            )}
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-semibold text-slate-700">
-              Total
-            </label>
-            <input
-              type="text"
-              value={total !== null ? `L ${formatLempiras(total)}` : ""}
-              readOnly
-              tabIndex={-1}
-              placeholder="—"
-              className={totalInputClass}
-            />
-          </div>
+          {dispensadoFueraEmpresa && (
+            <>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-semibold text-slate-700">
+                  Precio por galón
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={precioGalon}
+                  onChange={(e) =>
+                    setPrecioGalon(sanitizeDecimalInput(e.target.value))
+                  }
+                  required
+                  placeholder="Ingresar precio"
+                  className={precioInputClass}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-semibold text-slate-700">
+                  Total
+                </label>
+                <input
+                  type="text"
+                  value={total !== null ? `L ${formatLempiras(total)}` : ""}
+                  readOnly
+                  tabIndex={-1}
+                  placeholder="—"
+                  className={totalInputClass}
+                />
+              </div>
+            </>
+          )}
         </div>
+
+        {!dispensadoFueraEmpresa && (
+          <p className="text-xs text-slate-500">
+            El precio se tomará de la tabla de precios de combustible según la
+            fecha y el tipo de combustible de la unidad. Debe existir un precio
+            vigente para poder registrar el dispensado.
+          </p>
+        )}
 
         {/* Observaciones (opcional) */}
         <div className="flex flex-col gap-1">

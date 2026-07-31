@@ -87,12 +87,25 @@ export interface UsoPorEmpresaItemDto {
   llenadoSuperior: UsoPorEmpresaLlenadoDto | null;
   llenadoInferior: UsoPorEmpresaLlenadoDto | null;
   kmEntreLlenados: number | null;
+  /** Mensaje si faltó precio de catálogo para el llenado superior interno. */
+  errorCosto: string | null;
+}
+
+export interface UsoPorEmpresaErrorDto {
+  movilizacionId: number;
+  dispensadoId: number;
+  fechaDispensado: string;
+  unidadId: number;
+  unidadNombre: string;
+  tipoCombustible: string;
+  message: string;
 }
 
 export interface UsoPorEmpresaDto {
   desde: string;
   hasta: string;
   items: UsoPorEmpresaItemDto[];
+  errores: UsoPorEmpresaErrorDto[];
   total: number;
   page: number;
   pageSize: number;

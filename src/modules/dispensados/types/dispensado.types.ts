@@ -40,6 +40,8 @@ export interface DispensadoDto {
   /** Decimal serializado a string desde el backend para preservar precisión. */
   cantidadGalones: string;
   precioGalon: string;
+  /** True si el combustible se cargó fuera de la empresa (precio manual). */
+  dispensadoFueraEmpresa: boolean;
   observaciones: string | null;
   createdBy: number;
   createdAt: string;
@@ -55,6 +57,8 @@ export interface CreateDispensadoDto {
   kilometraje: number;
   cantidadGalones: number;
   precioGalon: number;
+  /** Default false. Si true, precioGalon es manual; si false, se guarda 0. */
+  dispensadoFueraEmpresa?: boolean;
   unidadId: number;
   observaciones?: string | null;
 }
@@ -64,6 +68,7 @@ export interface UpdateDispensadoDto {
   kilometraje?: number;
   cantidadGalones?: number;
   precioGalon?: number;
+  dispensadoFueraEmpresa?: boolean;
   unidadId?: number;
   observaciones?: string | null;
 }
