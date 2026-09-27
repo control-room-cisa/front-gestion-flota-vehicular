@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
 import { SearchableSelect } from "../../../shared/components/SearchableSelect";
@@ -283,6 +289,13 @@ export const UsoPorEmpresaTab = () => {
     item: UsoPorEmpresaItemDto;
   } | null>(null);
 
+  // Tooltip de comentario (portal) — evita quedar cortado por overflow de la tabla.
+  const [commentTooltip, setCommentTooltip] = useState<{
+    top: number;
+    left: number;
+    text: string;
+  } | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     Promise.all([
@@ -474,7 +487,7 @@ export const UsoPorEmpresaTab = () => {
   );
 
   const showCostoHover = (
-    e: React.MouseEvent<HTMLElement>,
+    e: MouseEvent<HTMLElement>,
     item: UsoPorEmpresaItemDto,
   ) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -484,6 +497,20 @@ export const UsoPorEmpresaTab = () => {
       left = Math.max(8, window.innerWidth - W - 8);
     }
     setCostoHover({ top: rect.bottom + 6, left, item });
+  };
+
+  const showCommentTooltip = (
+    e: MouseEvent<HTMLTableCellElement>,
+    text: string,
+  ) => {
+    if (!text) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const TT_MAX_W = 360;
+    let left = rect.left;
+    if (left + TT_MAX_W > window.innerWidth - 8) {
+      left = Math.max(8, window.innerWidth - TT_MAX_W - 8);
+    }
+    setCommentTooltip({ top: rect.bottom + 6, left, text });
   };
 
   const exportarExcel = () => {
@@ -883,10 +910,15 @@ export const UsoPorEmpresaTab = () => {
                         )}
                       </td>
                       <td
-                        className={`px-4 py-3 text-sm text-slate-700 max-w-[12rem] truncate ${COL_LG}`}
-                        title={m.comentario}
+                        className={`px-4 py-3 text-sm text-slate-700 max-w-[16rem] cursor-help ${COL_LG}`}
+                        onMouseEnter={(e) =>
+                          showCommentTooltip(e, m.comentario)
+                        }
+                        onMouseLeave={() => setCommentTooltip(null)}
                       >
-                        {m.comentario}
+                        <span className="block truncate">
+                          {m.comentario || "—"}
+                        </span>
                       </td>
                     </tr>
                   );
@@ -925,6 +957,24 @@ export const UsoPorEmpresaTab = () => {
           </div>
         </div>
       )}
+
+      {commentTooltip &&
+        createPortal(
+          <div
+            role="tooltip"
+            style={{
+              position: "fixed",
+              top: commentTooltip.top,
+              left: commentTooltip.left,
+              maxWidth: 360,
+              zIndex: 60,
+            }}
+            className="px-3 py-2 text-xs leading-relaxed text-white bg-slate-900 rounded-lg shadow-xl whitespace-pre-line break-words pointer-events-none"
+          >
+            {commentTooltip.text}
+          </div>,
+          document.body,
+        )}
 
       {costoHover &&
         createPortal(

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import * as XLSX from "xlsx";
 import { useConfirm } from "../../../shared/components/ConfirmProvider";
 import { SearchableSelect } from "../../../shared/components/SearchableSelect";
+import { useToast } from "../../../shared/components/ToastProvider";
 import { ApiError } from "../../../shared/http/api-client";
 import { unidadService } from "../../unidades/services/unidad.service";
 import type { UnidadDto } from "../../unidades/types/unidad.types";
@@ -19,6 +21,18 @@ type Modo =
   | { tipo: "editar"; dispensado: DispensadoDto };
 
 const PAGE_SIZE = 20;
+const EXPORT_PAGE_SIZE = 100;
+
+const EXCEL_DISPENSADOS_HEADERS = [
+  "Fecha y hora",
+  "Usuario",
+  "Kilometraje",
+  "Galones",
+  "Precio / galón",
+  "Total",
+  "Fuera de empresa",
+  "Observaciones",
+] as const;
 
 const formatFecha = (iso: string): string =>
   new Date(iso).toLocaleString("es-HN", {
@@ -164,13 +178,46 @@ const inicioDelDiaISO = (ymd: string): string =>
 const finDelDiaISO = (ymd: string): string =>
   new Date(`${ymd}T23:59:59.999`).toISOString();
 
+/** "YYYY/MM/DD HH:mm" en TZ local. Usado en la exportación a Excel. */
+const formatFechaExcel = (iso: string): string => {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+/**
+ * Nombre de pestaña válido para Excel (máx. 31 chars; sin \ / ? * [ ]).
+ * Si el nombre ya se usó, agrega un sufijo numérico para evitar colisiones.
+ */
+const nombreHojaExcel = (
+  raw: string,
+  usados: Set<string>,
+): string => {
+  const base = (raw.trim() || "Vehículo")
+    .replace(/[\\/?*[\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 31);
+  let nombre = base;
+  let n = 2;
+  while (usados.has(nombre.toLowerCase())) {
+    const sufijo = ` (${n})`;
+    nombre = `${base.slice(0, Math.max(1, 31 - sufijo.length))}${sufijo}`;
+    n += 1;
+  }
+  usados.add(nombre.toLowerCase());
+  return nombre;
+};
+
 export const DispensadosPage = () => {
   const confirm = useConfirm();
+  const toast = useToast();
 
   const [dispensados, setDispensados] = useState<DispensadoDto[]>([]);
   const [total, setTotal] = useState(0);
   const [unidades, setUnidades] = useState<UnidadDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exportando, setExportando] = useState(false);
   const [error, setError] = useState<string>();
   const [modo, setModo] = useState<Modo>({ tipo: "oculto" });
   const [menuAcciones, setMenuAcciones] = useState<{
@@ -318,6 +365,168 @@ export const DispensadosPage = () => {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Exportación a Excel. Pagina contra el backend hasta agotar el dataset
+  // (respetando el rango de fechas y el filtro de vehículo) y genera un
+  // archivo .xlsx con una pestaña por vehículo.
+  // ---------------------------------------------------------------------------
+  const exportarExcel = async () => {
+    if (exportando) return;
+    if (desde && hasta && desde > hasta) {
+      toast.warning(
+        '"Desde" no puede ser posterior a "Hasta".',
+        "Filtros inválidos",
+      );
+      return;
+    }
+
+    setExportando(true);
+    setError(undefined);
+    try {
+      const filtros = {
+        desde: desde ? inicioDelDiaISO(desde) : undefined,
+        hasta: hasta ? finDelDiaISO(hasta) : undefined,
+        unidadId: unidadFiltro?.id,
+        pageSize: EXPORT_PAGE_SIZE,
+      };
+
+      const todos: DispensadoDto[] = [];
+      let paginaActual = 1;
+      let totalRegistros = 0;
+      do {
+        const res = await dispensadoService.list({
+          ...filtros,
+          page: paginaActual,
+        });
+        todos.push(...res.items);
+        totalRegistros = res.total;
+        if (res.items.length === 0) break;
+        paginaActual += 1;
+      } while (todos.length < totalRegistros);
+
+      if (todos.length === 0) {
+        toast.info(
+          "No hay dispensados para exportar con los filtros aplicados.",
+          "Sin resultados",
+        );
+        return;
+      }
+
+      type ExcelFila = {
+        "Fecha y hora": string;
+        Usuario: string;
+        Kilometraje: number;
+        Galones: number;
+        "Precio / galón": number;
+        Total: number;
+        "Fuera de empresa": string;
+        Observaciones: string;
+      };
+
+      // Agrupar por vehículo manteniendo el orden de primera aparición.
+      const porUnidad = new Map<
+        number,
+        { nombre: string; clase: string; items: DispensadoDto[] }
+      >();
+      for (const d of todos) {
+        const grupo = porUnidad.get(d.unidad.id);
+        if (grupo) {
+          grupo.items.push(d);
+        } else {
+          porUnidad.set(d.unidad.id, {
+            nombre: d.unidad.nombre,
+            clase: d.unidad.clase,
+            items: [d],
+          });
+        }
+      }
+
+      const wb = XLSX.utils.book_new();
+      const nombresUsados = new Set<string>();
+      const gruposOrdenados = [...porUnidad.values()].sort((a, b) =>
+        a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }),
+      );
+
+      for (const grupo of gruposOrdenados) {
+        const filas: ExcelFila[] = grupo.items.map((d) => {
+          const galones = Number(d.cantidadGalones);
+          const precio = Number(d.precioGalon);
+          const totalQ =
+            Number.isFinite(galones) && Number.isFinite(precio)
+              ? galones * precio
+              : 0;
+          return {
+            "Fecha y hora": formatFechaExcel(d.fecha),
+            Usuario: `${d.usuario.nombre} ${d.usuario.apellido}`.trim(),
+            Kilometraje: d.kilometraje,
+            Galones: Number.isFinite(galones) ? galones : 0,
+            "Precio / galón": Number.isFinite(precio) ? precio : 0,
+            Total: totalQ,
+            "Fuera de empresa": d.dispensadoFueraEmpresa ? "Sí" : "No",
+            Observaciones: d.observaciones ?? "",
+          };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(filas, {
+          header: [...EXCEL_DISPENSADOS_HEADERS],
+        });
+
+        // Forzar tipo numérico y formato decimal en columnas monetarias/cantidad.
+        const colsNumericas = [
+          EXCEL_DISPENSADOS_HEADERS.indexOf("Galones"),
+          EXCEL_DISPENSADOS_HEADERS.indexOf("Precio / galón"),
+          EXCEL_DISPENSADOS_HEADERS.indexOf("Total"),
+        ];
+        for (let i = 0; i < filas.length; i++) {
+          for (const c of colsNumericas) {
+            const addr = XLSX.utils.encode_cell({ r: i + 1, c });
+            const cell = ws[addr];
+            if (cell && typeof cell.v === "number") {
+              cell.t = "n";
+              cell.z = "0.00";
+            }
+          }
+        }
+
+        ws["!cols"] = [
+          { wch: 18 }, // Fecha y hora
+          { wch: 28 }, // Usuario
+          { wch: 12 }, // Kilometraje
+          { wch: 10 }, // Galones
+          { wch: 14 }, // Precio / galón
+          { wch: 12 }, // Total
+          { wch: 16 }, // Fuera de empresa
+          { wch: 40 }, // Observaciones
+        ];
+
+        const sheetName = nombreHojaExcel(
+          `${grupo.nombre} (${grupo.clase})`,
+          nombresUsados,
+        );
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      }
+
+      const sufijo =
+        desde && hasta
+          ? desde === hasta
+            ? desde
+            : `${desde}_a_${hasta}`
+          : hoyISO();
+      XLSX.writeFile(wb, `dispensados_${sufijo}.xlsx`);
+
+      toast.success(
+        `Se exportaron ${todos.length} registro${todos.length === 1 ? "" : "s"} en ${porUnidad.size} pestaña${porUnidad.size === 1 ? "" : "s"}.`,
+        "Excel generado",
+      );
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Error al exportar dispensados";
+      toast.error(msg, "No se pudo generar el Excel");
+    } finally {
+      setExportando(false);
+    }
+  };
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const desdeRegistro = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const hastaRegistro = Math.min(page * PAGE_SIZE, total);
@@ -336,13 +545,35 @@ export const DispensadosPage = () => {
           <p className="text-sm text-slate-600">
             Registro histórico de cargas de combustible.
           </p>
-          <button
-            type="button"
-            onClick={() => setModo({ tipo: "crear" })}
-            className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500"
-          >
-            + Nuevo dispensado
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={exportarExcel}
+              disabled={exportando || loading}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 3a.75.75 0 01.75.75v8.69l2.22-2.22a.75.75 0 111.06 1.06l-3.5 3.5a.75.75 0 01-1.06 0l-3.5-3.5a.75.75 0 111.06-1.06l2.22 2.22V3.75A.75.75 0 0110 3zM3.75 15a.75.75 0 01.75.75v.75c0 .138.112.25.25.25h10.5a.25.25 0 00.25-.25v-.75a.75.75 0 011.5 0v.75A1.75 1.75 0 0115.25 18H4.75A1.75 1.75 0 013 16.5v-.75A.75.75 0 013.75 15z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              {exportando ? "Generando…" : "Descargar Excel"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setModo({ tipo: "crear" })}
+              className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500"
+            >
+              + Nuevo dispensado
+            </button>
+          </div>
         </div>
 
         {/* Barra de filtros */}

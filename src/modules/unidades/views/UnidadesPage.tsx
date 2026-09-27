@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../../shared/auth/AuthContext';
 import { ApiError } from '../../../shared/http/api-client';
@@ -52,6 +52,7 @@ export const UnidadesPage = () => {
   const [categorias, setCategorias] = useState<CategoriaDto[]>([]);
   const [categoriaFiltro, setCategoriaFiltro] = useState<number | ''>('');
   const [unidades, setUnidades] = useState<UnidadDto[]>([]);
+  const [busqueda, setBusqueda] = useState('');
   const [incluirInactivos, setIncluirInactivos] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
@@ -104,8 +105,26 @@ export const UnidadesPage = () => {
 
   const onCategoriaFiltroChange = (value: number | '') => {
     setCategoriaFiltro(value);
+    setBusqueda('');
     setModo({ tipo: 'oculto' });
   };
+
+  const filtradas = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return unidades;
+    return unidades.filter((u) => {
+      const haystack = [
+        u.clase,
+        u.nombre,
+        TIPO_MEDICION_LABELS[u.tipoMedicion],
+        TIPO_COMBUSTIBLE_LABELS[u.tipoCombustible],
+        u.activo ? 'activo' : 'inactivo',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [unidades, busqueda]);
 
   const toggleMenuAcciones = (
     e: React.MouseEvent<HTMLButtonElement>,
@@ -223,6 +242,38 @@ export const UnidadesPage = () => {
                 ))}
               </select>
             </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-semibold text-slate-700">
+                Buscar
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
+                    />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  disabled={categoriaFiltro === ''}
+                  placeholder="Código, nombre, combustible..."
+                  className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none w-full sm:w-72 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
             <label className="flex items-center gap-2 text-sm text-slate-700 pb-2">
               <input
                 type="checkbox"
@@ -303,17 +354,19 @@ export const UnidadesPage = () => {
                       Cargando...
                     </td>
                   </tr>
-                ) : unidades.length === 0 ? (
+                ) : filtradas.length === 0 ? (
                   <tr>
                     <td
                       colSpan={colCount}
                       className="px-4 py-8 text-center text-slate-500"
                     >
-                      Sin registros en esta categoría
+                      {busqueda.trim()
+                        ? 'Sin resultados para la búsqueda'
+                        : 'Sin registros en esta categoría'}
                     </td>
                   </tr>
                 ) : (
-                  unidades.map((u) => (
+                  filtradas.map((u) => (
                     <tr key={u.id} className={u.activo ? '' : 'bg-slate-50/60'}>
                       <td className="px-3 lg:px-4 py-3 font-mono text-sm text-slate-800">
                         {u.clase}
