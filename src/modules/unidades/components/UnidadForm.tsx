@@ -210,16 +210,28 @@ export const UnidadForm = ({
             <input
               type="text"
               value={clase}
-              onChange={(e) => setClase(e.target.value.toUpperCase())}
+              onChange={(e) =>
+                setClase(
+                  e.target.value
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9-]/g, '')
+                    .slice(0, 10),
+                )
+              }
               maxLength={10}
               required={!soloCosto}
               disabled={camposBloqueados}
+              autoCapitalize="characters"
+              spellCheck={false}
               className={
                 'font-mono uppercase tracking-wider ' +
                 (camposBloqueados ? inputReadonlyClass : inputEditableClass)
               }
               placeholder="VH-001"
             />
+            <span className="text-xs text-slate-500">
+              Solo letras mayúsculas, números y guiones.
+            </span>
           </div>
           <div className="flex flex-col gap-1 sm:col-span-2">
             <label className="text-sm font-semibold text-slate-700">
